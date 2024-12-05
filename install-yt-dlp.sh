@@ -1,4 +1,16 @@
 #!/bin/bash
+
+echo "Upgrading Python to version 3.9..."
+
+# Install pyenv and Python 3.9
+curl https://pyenv.run | bash
+export PATH="$HOME/.pyenv/bin:$PATH"
+eval "$(pyenv init --path)"
+eval "$(pyenv init -)"
+
+pyenv install 3.9.10
+pyenv global 3.9.10
+
 echo "Installing yt-dlp..."
 echo "Current PATH: $PATH"  # Debug line
 
