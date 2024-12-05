@@ -1,0 +1,33 @@
+<div class="video-details-container" *ngIf="details">
+  <div class="video-thumbnail-title">
+    <img [src]="details.thumbnail" alt="Video Thumbnail" class="video-thumbnail" />
+    <h2 class="video-title">{{ details.title }}</h2>
+  </div>
+  <div class="video-details">
+    <table class="details-table">
+      <thead>
+        <tr>
+          <th>Resolution</th>
+          <th>Format</th>
+          <th>Size</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let format of details.formats"
+          [hidden]="format.quality === 'Unknown' || format.size === 'Unknown'"
+        >
+        <td>{{ format.resolution }}</td>
+          <td>{{ format.format }}</td>
+          <td>{{ format.size }}</td>
+          <td>
+            <button (click)="downloadFormat(format.url)" class="btn-download">
+              Download
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
