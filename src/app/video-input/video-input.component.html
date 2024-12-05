@@ -1,0 +1,58 @@
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&family=Roboto:wght@300;400&display=swap"
+  rel="stylesheet">
+
+<div class="header">
+  <div class="header-left">
+    <img src="../../assets/logos/hdtube-logo.png" alt="Company Logo" class="header-logo" />
+    <!-- <h2 class="header-title">HDTube Saver</h2> -->
+  </div>
+  <!-- <nav class="header-nav">
+    <a href="#features">Features</a>
+    <a href="#support">Support</a>
+    <a href="#contact">Contact</a>
+  </nav> -->
+</div>  
+
+<div class="content-body">
+  <div class="video-input-container">
+    <!-- SEO Content Section -->
+    <div class="seo-content">
+      <h1 class="seo-title">Download YouTube Videos in HD</h1>
+      <p class="seo-description">
+        Convert and download your favorite YouTube videos effortlessly with HDTube Saver. <br>Experience high-quality video downloads in multiple formats and resolutions. Whether you need HD clarity or specific formats, HDTube Saver has got you covered. <br> <br> Simply enter the YouTube URL and get your video with ease!
+        It's the ultimate tool for hassle-free video downloading.
+      </p>
+    </div>
+  
+    <!-- Input Form -->
+    <form class="input-form" (ngSubmit)="onSubmit()">
+      <input type="url" [(ngModel)]="videoUrl" name="videoUrl" placeholder="Enter YouTube URL" required />
+      <button type="submit">Search</button>
+    </form>
+  
+    <!-- Loading Animation -->
+    <div *ngIf="isLoading" class="loading-overlay">
+      <div class="loading-container">
+        <img src="https://miro.medium.com/v2/resize:fit:1400/0*CwVWKIk3IlAettJn.gif" alt="Loading..." />
+      </div>
+    </div>
+  
+    <!-- Video Details Section -->
+    <div *ngIf="videoDetails && !isLoading" class="details-container">
+      <app-video-details [details]="videoDetails" (download)="download($event)"></app-video-details>
+    </div>
+  </div>
+  
+</div>
+
+<!-- <div class="footer">
+  <div class="footer-content">
+    <p class="footer-description">
+      HDTube Saver tool makes video downloading seamless and fast. Contact us at
+      <a href="mailto:support@yourdomain.com">support@gmail.com</a>.
+    </p>
+    <div class="footer-links">
+      <a href="#privacy">Privacy Policy</a> | <a href="#terms">Terms of Service</a>
+    </div>
+  </div>
+</div> -->
