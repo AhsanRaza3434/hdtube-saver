@@ -6,7 +6,7 @@ import { Observable } from 'rxjs';
   providedIn: 'root',
 })
 export class YouTubeService {
-  private apiUrl = 'http://localhost:3000/api';
+  private apiUrl = 'https://hdtube-saver.onrender.com/api';
 
   constructor(private http: HttpClient) {}
 
