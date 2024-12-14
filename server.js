@@ -2,6 +2,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { spawn } = require('child_process');
+const { exec } = require('child_process');
 
 const app = express();
 const PORT = 3000;
@@ -20,8 +21,10 @@ app.post('/api/video-details', (req, res) => {
 
   try {
     console.log('Fetching video details for:', url);
-
-    const process = spawn('yt-dlp', ['-j', url]);
+    const ytDlpPath = process.platform === 'win32'
+  ? `${process.env.USERPROFILE}\\bin\\yt-dlp`
+  : `${process.env.HOME}/bin/yt-dlp`;
+    const process = spawn(ytDlpPath, ['-j', url]);    
 
     let output = '';
 
@@ -111,6 +114,7 @@ app.get('/api/download', (req, res) => {
     res.status(500).json({ error: 'Error during video download' });
   }
 });
+console.log('Runtime PATH:', process.env.PATH);
 
 // Start the server
 app.listen(PORT, () => {
