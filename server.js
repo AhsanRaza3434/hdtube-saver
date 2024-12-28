@@ -2,6 +2,7 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const { exec, spawn } = require('child_process');
+const bodyParser = require('body-parser');
 const fs = require("fs");
 const path = require("path");
 
@@ -234,5 +235,4 @@ app.get("/api/stream-merge", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-  console.log(`yt-dlp path: ${ytDlpPath}`);
 });
