@@ -17,15 +17,10 @@ echo "Current PATH: $PATH"  # Debug line
 # Create the ~/bin directory if it doesn't exist
 mkdir -p ~/bin
 
-# Modify the install-yt-dlp.sh script
-curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
-chmod +x /usr/local/bin/yt-dlp
-
-# Move yt-dlp to ~/bin
-mv ~/yt-dlp ~/bin/yt-dlp
+# Install yt-dlp to the ~/bin directory
+curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ~/bin/yt-dlp
+chmod +x ~/bin/yt-dlp
 
 # Confirm installation
 ~/bin/yt-dlp --version
-
-echo "yt-dlp installed at: $(which yt-dlp)"
 
