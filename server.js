@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 
 const app = express();
 const PORT = 3000;
+process.env.PATH += `:${process.env.HOME}/bin`;
 
 // Middleware
 app.use(bodyParser.json());
@@ -18,7 +19,8 @@ app.post('/api/video-details', (req, res) => {
   }
 
   try {
-    const process = spawn('/home/render/bin/yt-dlp', ['-j', url]);
+    const ytDlpPath = process.env.YT_DLP_PATH || '/home/render/bin/yt-dlp';
+    const process = spawn(ytDlpPath, ['-j', url]);
 
     let output = '';
 
