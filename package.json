@@ -8,7 +8,6 @@
     "test": "ng test",
     "lint": "ng lint",
     "e2e": "ng e2e",
-    "postinstall": "npm run install-yt-dlp",
     "install-yt-dlp": "bash install-yt-dlp.sh"
   },
   "private": true,
