@@ -19,20 +19,32 @@ app.post('/api/video-details', (req, res) => {
   }
 
   try {
-    const ytDlpPath = process.env.YT_DLP_PATH || '/home/render/bin/yt-dlp';
-    const process = spawn(ytDlpPath, ['-j', url]);
+    const ytDlpProcess = spawn(ytDlpPath, ['-j', url]);
 
-    let output = '';
-
-    process.stdout.on('data', (data) => {
+    ytDlpProcess.stdout.on('data', (data) => {
       output += data.toString();
     });
 
-    process.stderr.on('data', (data) => {
+    ytDlpProcess.stderr.on('data', (data) => {
       console.error('Error:', data.toString());
     });
 
-    process.on('close', (code) => {
+    ytDlpProcess.on('close', (code) => {
+      if (code !== 0) {
+        return res.status(500).json({ error: 'Failed to fetch video details' });
+      }
+
+    let output = '';
+
+    ytDlpProcess.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    ytDlpProcess.stderr.on('data', (data) => {
+      console.error('Error:', data.toString());
+    });
+
+    ytDlpProcess.on('close', (code) => {
       if (code !== 0) {
         return res.status(500).json({ error: 'Failed to fetch video details' });
       }
@@ -130,6 +142,7 @@ app.post('/api/video-details', (req, res) => {
         console.error('Error parsing video details:', err.message);
         res.status(500).json({ error: 'Error parsing video details' });
       }
+    });
     });
   } catch (error) {
     console.error('Error:', error.message);
