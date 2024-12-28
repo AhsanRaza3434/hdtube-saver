@@ -16,8 +16,8 @@ app.use(cors());
 // Dynamically find the yt-dlp executable path
 exec("which yt-dlp", (error, stdout, stderr) => {
   if (error) {
-    console.error("yt-dlp not found", stderr);
-    return;
+    console.error(`Failed to locate yt-dlp: ${stderr}`);
+    process.exit(1); // Exit if yt-dlp is not found
   }
   const ytDlpPath = stdout.trim(); // Remove any new line
 
