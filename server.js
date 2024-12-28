@@ -5,7 +5,8 @@ const { spawn } = require('child_process');
 
 const app = express();
 const PORT = 3000;
-process.env.PATH += `:${process.env.HOME}/bin`;
+
+process.env.PATH = `${process.env.PATH}:/home/render/bin`;
 
 // Middleware
 app.use(bodyParser.json());
@@ -19,32 +20,20 @@ app.post('/api/video-details', (req, res) => {
   }
 
   try {
-    const ytDlpProcess = spawn(ytDlpPath, ['-j', url]);
-
-    ytDlpProcess.stdout.on('data', (data) => {
-      output += data.toString();
-    });
-
-    ytDlpProcess.stderr.on('data', (data) => {
-      console.error('Error:', data.toString());
-    });
-
-    ytDlpProcess.on('close', (code) => {
-      if (code !== 0) {
-        return res.status(500).json({ error: 'Failed to fetch video details' });
-      }
+    const ytDlpPath = '/home/render/bin/yt-dlp';
+    const process = spawn(ytDlpPath, ['-j', url]);
 
     let output = '';
 
-    ytDlpProcess.stdout.on('data', (data) => {
+    process.stdout.on('data', (data) => {
       output += data.toString();
     });
 
-    ytDlpProcess.stderr.on('data', (data) => {
+    process.stderr.on('data', (data) => {
       console.error('Error:', data.toString());
     });
 
-    ytDlpProcess.on('close', (code) => {
+    process.on('close', (code) => {
       if (code !== 0) {
         return res.status(500).json({ error: 'Failed to fetch video details' });
       }
@@ -142,7 +131,6 @@ app.post('/api/video-details', (req, res) => {
         console.error('Error parsing video details:', err.message);
         res.status(500).json({ error: 'Error parsing video details' });
       }
-    });
     });
   } catch (error) {
     console.error('Error:', error.message);
