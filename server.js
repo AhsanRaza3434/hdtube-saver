@@ -2,7 +2,6 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const { exec, spawn } = require('child_process');
-const bodyParser = require('body-parser');
 const fs = require("fs");
 const path = require("path");
 
