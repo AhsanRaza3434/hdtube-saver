@@ -2,17 +2,27 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { spawn } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 const app = express();
 const PORT = 3000;
 
-// Path to the yt-dlp executable
-const ytDlpPath = path.join(__dirname, '..', 'bin', 'yt-dlp');
+const ytDlpPath = '/opt/render/project/bin/yt-dlp'; // Ensure this path is correct
 
 // Middleware
 app.use(bodyParser.json());
 app.use(cors());
+
+// Debugging to check if yt-dlp exists at the path
+fs.access(ytDlpPath, fs.constants.X_OK, (err) => {
+  if (err) {
+      console.error(`yt-dlp not found at ${ytDlpPath}:`, err);
+  } else {
+      console.log(`yt-dlp is accessible at ${ytDlpPath}`);
+  }
+});
+
 
 app.post('/api/video-details', (req, res) => {
   const { url } = req.body;
@@ -192,7 +202,9 @@ app.get('/api/stream-merge', (req, res) => {
   });
 });
 
+// app.use(express.static('public'));
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`yt-dlp path: ${ytDlpPath}`);
 });
