@@ -26,3 +26,7 @@ mv ~/yt-dlp ~/bin/yt-dlp
 
 # Confirm installation
 ~/bin/yt-dlp --version
+
+# Add ~/bin to PATH permanently
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
