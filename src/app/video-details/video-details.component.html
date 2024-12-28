@@ -3,7 +3,27 @@
     <img [src]="details.thumbnail" alt="Video Thumbnail" class="video-thumbnail" />
     <h2 class="video-title">{{ details.title }}</h2>
   </div>
-  <div class="video-details">
+
+  <!-- Tabs for switching between Video and Audio -->
+  <div class="tab-container">
+    <button
+      [class.active]="selectedTab === 'video'"
+      (click)="selectTab('video')"
+      class="tab-button"
+    >
+      Video
+    </button>
+    <button
+      [class.active]="selectedTab === 'audio'"
+      (click)="selectTab('audio')"
+      class="tab-button"
+    >
+      Audio
+    </button>
+  </div>
+
+  <!-- Video Table -->
+  <div *ngIf="selectedTab === 'video'">
     <table class="details-table">
       <thead>
         <tr>
@@ -14,11 +34,38 @@
         </tr>
       </thead>
       <tbody>
-        <tr
-          *ngFor="let format of details.formats"
-          [hidden]="format.quality === 'Unknown' || format.size === 'Unknown'"
-        >
-        <td>{{ format.resolution }}</td>
+        <tr *ngFor="let format of videoFormats">
+          <td>{{ format.resolution }}</td>
+          <td>{{ format.format }}</td>
+          <td>{{ format.size }}</td>
+          <td>
+            <button
+            *ngIf="format.pairedAudio"
+            (click)="mergeDownload(format.url, format.pairedAudio)"
+            class="btn-download"
+          >
+            Download
+          </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Audio Table -->
+  <div *ngIf="selectedTab === 'audio'">
+    <table class="details-table">
+      <thead>
+        <tr>
+          <th>Quality</th>
+          <th>Format</th>
+          <th>Size</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let format of audioFormats">
+          <td>{{ format.quality }}</td>
           <td>{{ format.format }}</td>
           <td>{{ format.size }}</td>
           <td>

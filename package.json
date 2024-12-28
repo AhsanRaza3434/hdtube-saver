@@ -1,9 +1,9 @@
 {
   "name": "hdtube-saver",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "scripts": {
     "ng": "ng",
-    "start": "export PATH=\"$HOME/bin:$PATH\" && node server.js",
+    "start": "node server.js",
     "build": "ng build --prod",
     "test": "ng test",
     "lint": "ng lint",
@@ -26,6 +26,7 @@
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "express": "^4.21.1",
+    "http": "^0.0.1-security",
     "node-fetch": "^3.3.2",
     "postcss": "^8.4.49",
     "rxjs": "~6.6.0",
