@@ -30,3 +30,6 @@ mv ~/yt-dlp ~/bin/yt-dlp
 # Add ~/bin to PATH permanently
 echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
 source ~/.bashrc
+
+# After installing yt-dlp
+ln -s ~/bin/yt-dlp /usr/local/bin/yt-dlp

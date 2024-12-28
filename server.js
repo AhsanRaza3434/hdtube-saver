@@ -18,7 +18,7 @@ app.post('/api/video-details', (req, res) => {
   }
 
   try {
-    const process = spawn('yt-dlp', ['-j', url]);
+    const process = spawn('/home/render/bin/yt-dlp', ['-j', url]);
 
     let output = '';
 
