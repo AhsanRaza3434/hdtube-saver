@@ -8,7 +8,6 @@ const path = require("path");
 const app = express();
 const PORT = 3000;
 
-const ytDlpPath = "/opt/render/project/bin/yt-dlp"; // Ensure this path is correct
 
 // Middleware
 app.use(bodyParser.json());
