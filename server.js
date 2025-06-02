@@ -15,10 +15,14 @@ const conversionProgress = new Map();
 
 // Add this near the top of the file after the imports
 const tempDir = path.join(__dirname, 'temp');
+const cookiesDir = path.join(__dirname, 'cookies');
 
-// Ensure temp directory exists
+// Ensure temp and cookies directories exist
 if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
+}
+if (!fs.existsSync(cookiesDir)) {
+  fs.mkdirSync(cookiesDir, { recursive: true });
 }
 
 // Add this near the top of the file after the imports
@@ -28,7 +32,89 @@ const videoUrls = new Map();
 app.use(bodyParser.json());
 app.use(cors());
 
-// Get video details endpoint
+// Function to try different browsers for cookies
+async function tryGetCookies(url) {
+  const browsers = ['chrome', 'firefox', 'edge', 'brave', 'opera'];
+  const userAgents = {
+    chrome: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+    firefox: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0',
+    edge: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0',
+    brave: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+    opera: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 OPR/123.0.0.0'
+  };
+
+  // First try with manual cookies if they exist
+  const manualCookiesPath = path.join(cookiesDir, 'youtube.txt');
+  if (fs.existsSync(manualCookiesPath)) {
+    try {
+      const result = await new Promise((resolve, reject) => {
+        const proc = spawn('yt-dlp', [
+          '--dump-json',
+          '--no-playlist',
+          '--no-warnings',
+          '--cookies', manualCookiesPath,
+          '--user-agent', userAgents.chrome,
+          url
+        ]);
+        let output = '';
+        proc.stdout.on('data', (data) => output += data.toString());
+        proc.on('close', (code) => {
+          if (code === 0) resolve({ browser: 'manual', userAgent: userAgents.chrome });
+          else reject(new Error('Manual cookies failed'));
+        });
+      });
+      return result;
+    } catch (e) {
+      console.log('Manual cookies failed, trying browsers...');
+    }
+  }
+
+  // Try each browser
+  for (const browser of browsers) {
+    try {
+      const result = await new Promise((resolve, reject) => {
+        const proc = spawn('yt-dlp', [
+          '--dump-json',
+          '--no-playlist',
+          '--no-warnings',
+          '--cookies-from-browser', browser,
+          '--user-agent', userAgents[browser],
+          url
+        ]);
+        let output = '';
+        proc.stdout.on('data', (data) => output += data.toString());
+        proc.on('close', (code) => {
+          if (code === 0) resolve({ browser, userAgent: userAgents[browser] });
+          else reject(new Error(`${browser} cookies failed`));
+        });
+      });
+      return result;
+    } catch (e) {
+      console.log(`${browser} cookies failed, trying next browser...`);
+    }
+  }
+
+  throw new Error('All cookie methods failed');
+}
+
+// Add endpoint to upload cookies
+app.post('/api/upload-cookies', (req, res) => {
+  try {
+    const { cookies } = req.body;
+    if (!cookies) {
+      return res.status(400).json({ error: 'Cookies are required' });
+    }
+
+    const cookiesPath = path.join(cookiesDir, 'youtube.txt');
+    fs.writeFileSync(cookiesPath, cookies);
+    res.json({ message: 'Cookies uploaded successfully' });
+  } catch (error) {
+    console.error('Error uploading cookies:', error);
+    res.status(500).json({ error: 'Failed to upload cookies' });
+  }
+});
+
+// Modify the video-details endpoint to use the new cookie system
 app.get('/api/video-details', async (req, res) => {
   try {
     const url = req.query.url;
@@ -48,25 +134,17 @@ app.get('/api/video-details', async (req, res) => {
       console.warn('Could not extract video ID from URL:', url);
     }
 
-    // Use yt-dlp to get video info with enhanced options
+    // Try to get cookies and user agent
+    const { browser, userAgent } = await tryGetCookies(url);
+
+    // Use yt-dlp to get video info with cookies
     const ytdlpProcess = spawn('yt-dlp', [
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
-      '--cookies', './cookies.txt',
-      '--no-check-certificate',
-      '--no-call-home',
-      '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      '--add-header', 'Accept-Language: en-US,en;q=0.9',
-      '--add-header', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      '--add-header', 'Accept-Encoding: gzip, deflate, br',
-      '--add-header', 'Connection: keep-alive',
-      '--add-header', 'Upgrade-Insecure-Requests: 1',
-      '--add-header', 'Sec-Fetch-Dest: document',
-      '--add-header', 'Sec-Fetch-Mode: navigate',
-      '--add-header', 'Sec-Fetch-Site: none',
-      '--add-header', 'Sec-Fetch-User: ?1',
-      '--add-header', 'Cache-Control: max-age=0',
+      browser === 'manual' ? '--cookies' : '--cookies-from-browser',
+      browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
+      '--user-agent', userAgent,
       url
     ]);
 
@@ -292,10 +370,14 @@ app.post('/api/stream-merge', async (req, res) => {
     const { url, title, videoItag, audioItag } = req.body;
     if (!url || !title || !videoItag || !audioItag) {
       return res.status(400).json({ error: 'Video URL, title, videoItag, and audioItag are required' });
-  }
+    }
 
     const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
     const originalUrl = videoUrls.get(videoId) || url;
+
+    // Try to get cookies and user agent
+    const { browser, userAgent } = await tryGetCookies(originalUrl);
+
     const conversionId = Date.now().toString();
     const tempVideoPath = path.join(tempDir, `${conversionId}.video.mp4`);
     const tempAudioPath = path.join(tempDir, `${conversionId}.audio.m4a`);
@@ -323,20 +405,9 @@ app.post('/api/stream-merge', async (req, res) => {
       '--progress',
       '--no-simulate',
       '--no-warnings',
-      '--cookies', './cookies.txt',
-      '--no-check-certificate',
-      '--no-call-home',
-      '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      '--add-header', 'Accept-Language: en-US,en;q=0.9',
-      '--add-header', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      '--add-header', 'Accept-Encoding: gzip, deflate, br',
-      '--add-header', 'Connection: keep-alive',
-      '--add-header', 'Upgrade-Insecure-Requests: 1',
-      '--add-header', 'Sec-Fetch-Dest: document',
-      '--add-header', 'Sec-Fetch-Mode: navigate',
-      '--add-header', 'Sec-Fetch-Site: none',
-      '--add-header', 'Sec-Fetch-User: ?1',
-      '--add-header', 'Cache-Control: max-age=0',
+      browser === 'manual' ? '--cookies' : '--cookies-from-browser',
+      browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
+      '--user-agent', userAgent,
       originalUrl
     ]);
 
@@ -400,20 +471,9 @@ app.post('/api/stream-merge', async (req, res) => {
         '--progress',
         '--no-simulate',
         '--no-warnings',
-        '--cookies', './cookies.txt',
-        '--no-check-certificate',
-        '--no-call-home',
-        '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        '--add-header', 'Accept-Language: en-US,en;q=0.9',
-        '--add-header', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        '--add-header', 'Accept-Encoding: gzip, deflate, br',
-        '--add-header', 'Connection: keep-alive',
-        '--add-header', 'Upgrade-Insecure-Requests: 1',
-        '--add-header', 'Sec-Fetch-Dest: document',
-        '--add-header', 'Sec-Fetch-Mode: navigate',
-        '--add-header', 'Sec-Fetch-Site: none',
-        '--add-header', 'Sec-Fetch-User: ?1',
-        '--add-header', 'Cache-Control: max-age=0',
+        browser === 'manual' ? '--cookies' : '--cookies-from-browser',
+        browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
+        '--user-agent', userAgent,
         originalUrl
       ]);
 
@@ -592,25 +652,17 @@ app.post('/api/convert-to-mp4', async (req, res) => {
     const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
     const originalUrl = videoUrls.get(videoId) || url;
 
+    // Try to get cookies and user agent
+    const { browser, userAgent } = await tryGetCookies(originalUrl);
+
     // Get video info using yt-dlp
     const ytdlpProcess = spawn('yt-dlp', [
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
-      '--cookies', './cookies.txt',
-      '--no-check-certificate',
-      '--no-call-home',
-      '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      '--add-header', 'Accept-Language: en-US,en;q=0.9',
-      '--add-header', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      '--add-header', 'Accept-Encoding: gzip, deflate, br',
-      '--add-header', 'Connection: keep-alive',
-      '--add-header', 'Upgrade-Insecure-Requests: 1',
-      '--add-header', 'Sec-Fetch-Dest: document',
-      '--add-header', 'Sec-Fetch-Mode: navigate',
-      '--add-header', 'Sec-Fetch-Site: none',
-      '--add-header', 'Sec-Fetch-User: ?1',
-      '--add-header', 'Cache-Control: max-age=0',
+      browser === 'manual' ? '--cookies' : '--cookies-from-browser',
+      browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
+      '--user-agent', userAgent,
       originalUrl
     ]);
     let output = '';
@@ -652,20 +704,13 @@ app.post('/api/convert-to-mp4', async (req, res) => {
     const downloadProcess = spawn('yt-dlp', [
       '-f', itag,
       '-o', tempFilePath,
-      '--cookies', './cookies.txt',
-      '--no-check-certificate',
-      '--no-call-home',
-      '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      '--add-header', 'Accept-Language: en-US,en;q=0.9',
-      '--add-header', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      '--add-header', 'Accept-Encoding: gzip, deflate, br',
-      '--add-header', 'Connection: keep-alive',
-      '--add-header', 'Upgrade-Insecure-Requests: 1',
-      '--add-header', 'Sec-Fetch-Dest: document',
-      '--add-header', 'Sec-Fetch-Mode: navigate',
-      '--add-header', 'Sec-Fetch-Site: none',
-      '--add-header', 'Sec-Fetch-User: ?1',
-      '--add-header', 'Cache-Control: max-age=0',
+      '--newline',
+      '--progress',
+      '--no-simulate',
+      '--no-warnings',
+      browser === 'manual' ? '--cookies' : '--cookies-from-browser',
+      browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
+      '--user-agent', userAgent,
       originalUrl
     ]);
 
@@ -687,7 +732,7 @@ app.post('/api/convert-to-mp4', async (req, res) => {
     });
 
     downloadProcess.on('close', (code) => {
-    if (code !== 0) {
+      if (code !== 0) {
         // Clean up temp file on error
         if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
         conversionProgress.set(conversionId, {
@@ -707,8 +752,6 @@ app.post('/api/convert-to-mp4', async (req, res) => {
       });
     });
   } catch (error) {
-    // Clean up temp file on error
-    if (tempFilePath && fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
     console.error('Error in convert-to-mp4:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -740,6 +783,10 @@ app.post('/api/audio-to-mp3', async (req, res) => {
 
     const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
     const originalUrl = videoUrls.get(videoId) || url;
+
+    // Try to get cookies and user agent
+    const { browser, userAgent } = await tryGetCookies(originalUrl);
+
     const conversionId = Date.now().toString();
     const tempAudioPath = path.join(tempDir, `${conversionId}.audio`);
     const tempMp3Path = path.join(tempDir, `${conversionId}.mp3`);
@@ -754,20 +801,6 @@ app.post('/api/audio-to-mp3', async (req, res) => {
           '--dump-json',
           '--no-playlist',
           '--no-warnings',
-          '--cookies', './cookies.txt',
-          '--no-check-certificate',
-          '--no-call-home',
-          '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-          '--add-header', 'Accept-Language: en-US,en;q=0.9',
-          '--add-header', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          '--add-header', 'Accept-Encoding: gzip, deflate, br',
-          '--add-header', 'Connection: keep-alive',
-          '--add-header', 'Upgrade-Insecure-Requests: 1',
-          '--add-header', 'Sec-Fetch-Dest: document',
-          '--add-header', 'Sec-Fetch-Mode: navigate',
-          '--add-header', 'Sec-Fetch-Site: none',
-          '--add-header', 'Sec-Fetch-User: ?1',
-          '--add-header', 'Cache-Control: max-age=0',
           originalUrl
         ]);
         let output = '';
@@ -815,18 +848,9 @@ app.post('/api/audio-to-mp3', async (req, res) => {
       '--progress',
       '--no-simulate',
       '--no-warnings',
-      '--cookies', './cookies.txt',
-      '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-      '--add-header', 'Accept-Language: en-US,en;q=0.9',
-      '--add-header', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-      '--add-header', 'Accept-Encoding: gzip, deflate, br',
-      '--add-header', 'Connection: keep-alive',
-      '--add-header', 'Upgrade-Insecure-Requests: 1',
-      '--add-header', 'Sec-Fetch-Dest: document',
-      '--add-header', 'Sec-Fetch-Mode: navigate',
-      '--add-header', 'Sec-Fetch-Site: none',
-      '--add-header', 'Sec-Fetch-User: ?1',
-      '--add-header', 'Cache-Control: max-age=0',
+      browser === 'manual' ? '--cookies' : '--cookies-from-browser',
+      browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
+      '--user-agent', userAgent,
       originalUrl
     ];
     console.log(`[audio-to-mp3] conversionId=${conversionId}, itag=${audioItag}, tempAudioPath=${tempAudioPath}, tempMp3Path=${tempMp3Path}`);
