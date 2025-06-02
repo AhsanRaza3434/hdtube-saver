@@ -5,4 +5,12 @@
 .youtube.com	TRUE	/	TRUE	2147483647	CONSENT	YES+cb
 .youtube.com	TRUE	/	TRUE	2147483647	VISITOR_INFO1_LIVE	random_string
 .youtube.com	TRUE	/	TRUE	2147483647	YSC	random_string
-.youtube.com	TRUE	/	TRUE	2147483647	GPS	1 
+.youtube.com	TRUE	/	TRUE	2147483647	GPS	1
+.youtube.com	TRUE	/	TRUE	2147483647	LOGIN_INFO	random_string
+.youtube.com	TRUE	/	TRUE	2147483647	PREF	f4=4000000&tz=UTC
+.youtube.com	TRUE	/	TRUE	2147483647	HSID	random_string
+.youtube.com	TRUE	/	TRUE	2147483647	SSID	random_string
+.youtube.com	TRUE	/	TRUE	2147483647	APISID	random_string
+.youtube.com	TRUE	/	TRUE	2147483647	SAPISID	random_string
+.youtube.com	TRUE	/	TRUE	2147483647	__Secure-1PAPISID	random_string
+.youtube.com	TRUE	/	TRUE	2147483647	__Secure-3PAPISID	random_string 

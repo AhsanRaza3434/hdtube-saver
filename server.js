@@ -48,14 +48,25 @@ app.get('/api/video-details', async (req, res) => {
       console.warn('Could not extract video ID from URL:', url);
     }
 
-    // Use yt-dlp to get video info with cookies file
+    // Use yt-dlp to get video info with enhanced options
     const ytdlpProcess = spawn('yt-dlp', [
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
-      '--cookies', './cookies.txt',  // Use cookies file
+      '--cookies', './cookies.txt',
       '--no-check-certificate',
       '--no-call-home',
+      '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      '--add-header', 'Accept-Language: en-US,en;q=0.9',
+      '--add-header', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      '--add-header', 'Accept-Encoding: gzip, deflate, br',
+      '--add-header', 'Connection: keep-alive',
+      '--add-header', 'Upgrade-Insecure-Requests: 1',
+      '--add-header', 'Sec-Fetch-Dest: document',
+      '--add-header', 'Sec-Fetch-Mode: navigate',
+      '--add-header', 'Sec-Fetch-Site: none',
+      '--add-header', 'Sec-Fetch-User: ?1',
+      '--add-header', 'Cache-Control: max-age=0',
       url
     ]);
 
@@ -315,6 +326,17 @@ app.post('/api/stream-merge', async (req, res) => {
       '--cookies', './cookies.txt',
       '--no-check-certificate',
       '--no-call-home',
+      '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      '--add-header', 'Accept-Language: en-US,en;q=0.9',
+      '--add-header', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      '--add-header', 'Accept-Encoding: gzip, deflate, br',
+      '--add-header', 'Connection: keep-alive',
+      '--add-header', 'Upgrade-Insecure-Requests: 1',
+      '--add-header', 'Sec-Fetch-Dest: document',
+      '--add-header', 'Sec-Fetch-Mode: navigate',
+      '--add-header', 'Sec-Fetch-Site: none',
+      '--add-header', 'Sec-Fetch-User: ?1',
+      '--add-header', 'Cache-Control: max-age=0',
       originalUrl
     ]);
 
@@ -381,6 +403,17 @@ app.post('/api/stream-merge', async (req, res) => {
         '--cookies', './cookies.txt',
         '--no-check-certificate',
         '--no-call-home',
+        '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        '--add-header', 'Accept-Language: en-US,en;q=0.9',
+        '--add-header', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        '--add-header', 'Accept-Encoding: gzip, deflate, br',
+        '--add-header', 'Connection: keep-alive',
+        '--add-header', 'Upgrade-Insecure-Requests: 1',
+        '--add-header', 'Sec-Fetch-Dest: document',
+        '--add-header', 'Sec-Fetch-Mode: navigate',
+        '--add-header', 'Sec-Fetch-Site: none',
+        '--add-header', 'Sec-Fetch-User: ?1',
+        '--add-header', 'Cache-Control: max-age=0',
         originalUrl
       ]);
 
@@ -567,6 +600,17 @@ app.post('/api/convert-to-mp4', async (req, res) => {
       '--cookies', './cookies.txt',
       '--no-check-certificate',
       '--no-call-home',
+      '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      '--add-header', 'Accept-Language: en-US,en;q=0.9',
+      '--add-header', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      '--add-header', 'Accept-Encoding: gzip, deflate, br',
+      '--add-header', 'Connection: keep-alive',
+      '--add-header', 'Upgrade-Insecure-Requests: 1',
+      '--add-header', 'Sec-Fetch-Dest: document',
+      '--add-header', 'Sec-Fetch-Mode: navigate',
+      '--add-header', 'Sec-Fetch-Site: none',
+      '--add-header', 'Sec-Fetch-User: ?1',
+      '--add-header', 'Cache-Control: max-age=0',
       originalUrl
     ]);
     let output = '';
@@ -611,6 +655,17 @@ app.post('/api/convert-to-mp4', async (req, res) => {
       '--cookies', './cookies.txt',
       '--no-check-certificate',
       '--no-call-home',
+      '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      '--add-header', 'Accept-Language: en-US,en;q=0.9',
+      '--add-header', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      '--add-header', 'Accept-Encoding: gzip, deflate, br',
+      '--add-header', 'Connection: keep-alive',
+      '--add-header', 'Upgrade-Insecure-Requests: 1',
+      '--add-header', 'Sec-Fetch-Dest: document',
+      '--add-header', 'Sec-Fetch-Mode: navigate',
+      '--add-header', 'Sec-Fetch-Site: none',
+      '--add-header', 'Sec-Fetch-User: ?1',
+      '--add-header', 'Cache-Control: max-age=0',
       originalUrl
     ]);
 
@@ -702,6 +757,17 @@ app.post('/api/audio-to-mp3', async (req, res) => {
           '--cookies', './cookies.txt',
           '--no-check-certificate',
           '--no-call-home',
+          '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+          '--add-header', 'Accept-Language: en-US,en;q=0.9',
+          '--add-header', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          '--add-header', 'Accept-Encoding: gzip, deflate, br',
+          '--add-header', 'Connection: keep-alive',
+          '--add-header', 'Upgrade-Insecure-Requests: 1',
+          '--add-header', 'Sec-Fetch-Dest: document',
+          '--add-header', 'Sec-Fetch-Mode: navigate',
+          '--add-header', 'Sec-Fetch-Site: none',
+          '--add-header', 'Sec-Fetch-User: ?1',
+          '--add-header', 'Cache-Control: max-age=0',
           originalUrl
         ]);
         let output = '';
@@ -750,6 +816,17 @@ app.post('/api/audio-to-mp3', async (req, res) => {
       '--no-simulate',
       '--no-warnings',
       '--cookies', './cookies.txt',
+      '--add-header', 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+      '--add-header', 'Accept-Language: en-US,en;q=0.9',
+      '--add-header', 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      '--add-header', 'Accept-Encoding: gzip, deflate, br',
+      '--add-header', 'Connection: keep-alive',
+      '--add-header', 'Upgrade-Insecure-Requests: 1',
+      '--add-header', 'Sec-Fetch-Dest: document',
+      '--add-header', 'Sec-Fetch-Mode: navigate',
+      '--add-header', 'Sec-Fetch-Site: none',
+      '--add-header', 'Sec-Fetch-User: ?1',
+      '--add-header', 'Cache-Control: max-age=0',
       originalUrl
     ];
     console.log(`[audio-to-mp3] conversionId=${conversionId}, itag=${audioItag}, tempAudioPath=${tempAudioPath}, tempMp3Path=${tempMp3Path}`);
