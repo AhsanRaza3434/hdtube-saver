@@ -48,14 +48,14 @@ app.get('/api/video-details', async (req, res) => {
       console.warn('Could not extract video ID from URL:', url);
     }
 
-    // Use yt-dlp to get video info with cookies
+    // Use yt-dlp to get video info with cookies file
     const ytdlpProcess = spawn('yt-dlp', [
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
-      '--cookies-from-browser', 'chrome',  // Use Chrome cookies
-      '--no-check-certificate',  // Skip certificate validation
-      '--no-call-home',  // Disable version check
+      '--cookies', './cookies.txt',  // Use cookies file
+      '--no-check-certificate',
+      '--no-call-home',
       url
     ]);
 
@@ -312,7 +312,7 @@ app.post('/api/stream-merge', async (req, res) => {
       '--progress',
       '--no-simulate',
       '--no-warnings',
-      '--cookies-from-browser', 'chrome',
+      '--cookies', './cookies.txt',
       '--no-check-certificate',
       '--no-call-home',
       originalUrl
@@ -378,7 +378,7 @@ app.post('/api/stream-merge', async (req, res) => {
         '--progress',
         '--no-simulate',
         '--no-warnings',
-        '--cookies-from-browser', 'chrome',
+        '--cookies', './cookies.txt',
         '--no-check-certificate',
         '--no-call-home',
         originalUrl
@@ -564,7 +564,7 @@ app.post('/api/convert-to-mp4', async (req, res) => {
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
-      '--cookies-from-browser', 'chrome',
+      '--cookies', './cookies.txt',
       '--no-check-certificate',
       '--no-call-home',
       originalUrl
@@ -608,7 +608,7 @@ app.post('/api/convert-to-mp4', async (req, res) => {
     const downloadProcess = spawn('yt-dlp', [
       '-f', itag,
       '-o', tempFilePath,
-      '--cookies-from-browser', 'chrome',
+      '--cookies', './cookies.txt',
       '--no-check-certificate',
       '--no-call-home',
       originalUrl
@@ -699,7 +699,7 @@ app.post('/api/audio-to-mp3', async (req, res) => {
           '--dump-json',
           '--no-playlist',
           '--no-warnings',
-          '--cookies-from-browser', 'chrome',
+          '--cookies', './cookies.txt',
           '--no-check-certificate',
           '--no-call-home',
           originalUrl
@@ -749,7 +749,7 @@ app.post('/api/audio-to-mp3', async (req, res) => {
       '--progress',
       '--no-simulate',
       '--no-warnings',
-      '--cookies-from-browser', 'chrome',
+      '--cookies', './cookies.txt',
       originalUrl
     ];
     console.log(`[audio-to-mp3] conversionId=${conversionId}, itag=${audioItag}, tempAudioPath=${tempAudioPath}, tempMp3Path=${tempMp3Path}`);
