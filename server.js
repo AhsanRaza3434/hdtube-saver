@@ -32,7 +32,7 @@ app.use(cors());
 app.get('/api/video-details', async (req, res) => {
   try {
     const url = req.query.url;
-  if (!url) {
+    if (!url) {
       console.error('URL is missing from request');
       return res.status(400).json({ error: 'URL is required' });
     }
@@ -46,13 +46,16 @@ app.get('/api/video-details', async (req, res) => {
       console.log('Stored video ID:', videoId);
     } else {
       console.warn('Could not extract video ID from URL:', url);
-  }
+    }
 
-    // Use yt-dlp to get video info
+    // Use yt-dlp to get video info with cookies
     const ytdlpProcess = spawn('yt-dlp', [
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
+      '--cookies-from-browser', 'chrome',  // Use Chrome cookies
+      '--no-check-certificate',  // Skip certificate validation
+      '--no-call-home',  // Disable version check
       url
     ]);
 
@@ -70,7 +73,7 @@ app.get('/api/video-details', async (req, res) => {
 
     await new Promise((resolve, reject) => {
       ytdlpProcess.on('close', (code) => {
-      if (code !== 0) {
+        if (code !== 0) {
           console.error('yt-dlp process failed with code:', code);
           console.error('Error output:', errorOutput);
           reject(new Error(`yt-dlp process failed with code ${code}`));
@@ -309,6 +312,9 @@ app.post('/api/stream-merge', async (req, res) => {
       '--progress',
       '--no-simulate',
       '--no-warnings',
+      '--cookies-from-browser', 'chrome',
+      '--no-check-certificate',
+      '--no-call-home',
       originalUrl
     ]);
 
@@ -372,6 +378,9 @@ app.post('/api/stream-merge', async (req, res) => {
         '--progress',
         '--no-simulate',
         '--no-warnings',
+        '--cookies-from-browser', 'chrome',
+        '--no-check-certificate',
+        '--no-call-home',
         originalUrl
       ]);
 
@@ -555,6 +564,9 @@ app.post('/api/convert-to-mp4', async (req, res) => {
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
+      '--cookies-from-browser', 'chrome',
+      '--no-check-certificate',
+      '--no-call-home',
       originalUrl
     ]);
     let output = '';
@@ -596,6 +608,9 @@ app.post('/api/convert-to-mp4', async (req, res) => {
     const downloadProcess = spawn('yt-dlp', [
       '-f', itag,
       '-o', tempFilePath,
+      '--cookies-from-browser', 'chrome',
+      '--no-check-certificate',
+      '--no-call-home',
       originalUrl
     ]);
 
@@ -684,6 +699,9 @@ app.post('/api/audio-to-mp3', async (req, res) => {
           '--dump-json',
           '--no-playlist',
           '--no-warnings',
+          '--cookies-from-browser', 'chrome',
+          '--no-check-certificate',
+          '--no-call-home',
           originalUrl
         ]);
         let output = '';
@@ -731,6 +749,7 @@ app.post('/api/audio-to-mp3', async (req, res) => {
       '--progress',
       '--no-simulate',
       '--no-warnings',
+      '--cookies-from-browser', 'chrome',
       originalUrl
     ];
     console.log(`[audio-to-mp3] conversionId=${conversionId}, itag=${audioItag}, tempAudioPath=${tempAudioPath}, tempMp3Path=${tempMp3Path}`);
