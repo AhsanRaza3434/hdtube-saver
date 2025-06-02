@@ -46,7 +46,7 @@ app.get('/api/video-details', async (req, res) => {
       console.log('Stored video ID:', videoId);
     } else {
       console.warn('Could not extract video ID from URL:', url);
-    }
+  }
 
     // Use yt-dlp to get video info
     const ytdlpProcess = spawn('yt-dlp', [
@@ -133,6 +133,7 @@ app.get('/api/video-details', async (req, res) => {
     const seenAudio = new Set();
     const audioFormats = videoInfo.formats
       .filter(format => format.vcodec === 'none' && format.acodec !== 'none' && format.url)
+      .filter(format => format.abr && (format.filesize || format.filesize_approx || format.clen)) // Only with valid bitrate and size
       .sort((a, b) => (b.abr || 0) - (a.abr || 0))
       .filter(format => {
         // Only keep the best for each bitrate
@@ -146,7 +147,8 @@ app.get('/api/video-details', async (req, res) => {
         quality: format.abr ? `${format.abr}kbps` : 'audio',
             format: format.ext,
         size: getSizeMB(format),
-        url: format.url
+            url: format.url,
+        abr: format.abr // Pass abr for frontend estimation if needed
       }));
 
     console.log('Processed formats:', {
@@ -276,7 +278,7 @@ app.post('/api/stream-merge', async (req, res) => {
     const { url, title, videoItag, audioItag } = req.body;
     if (!url || !title || !videoItag || !audioItag) {
       return res.status(400).json({ error: 'Video URL, title, videoItag, and audioItag are required' });
-    }
+  }
 
     const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
     const originalUrl = videoUrls.get(videoId) || url;
@@ -348,6 +350,10 @@ app.post('/api/stream-merge', async (req, res) => {
       console.log('Video download completed with code:', code);
       if (code !== 0) {
         console.error('Failed to download video stream');
+        // Clean up temp files on error
+        if (fs.existsSync(tempVideoPath)) fs.unlinkSync(tempVideoPath);
+        if (fs.existsSync(tempAudioPath)) fs.unlinkSync(tempAudioPath);
+        if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
         conversionProgress.set(conversionId, {
           progress: 0,
           status: 'error',
@@ -408,6 +414,10 @@ app.post('/api/stream-merge', async (req, res) => {
         console.log('Audio download completed with code:', code2);
         if (code2 !== 0) {
           console.error('Failed to download audio stream');
+          // Clean up temp files on error
+          if (fs.existsSync(tempVideoPath)) fs.unlinkSync(tempVideoPath);
+          if (fs.existsSync(tempAudioPath)) fs.unlinkSync(tempAudioPath);
+          if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
           conversionProgress.set(conversionId, {
             progress: 0,
             status: 'error',
@@ -446,8 +456,13 @@ app.post('/api/stream-merge', async (req, res) => {
 
         ffmpegProc.on('close', (code3) => {
           console.log('FFmpeg merge completed with code:', code3);
+          // Always clean up temp video/audio
+          if (fs.existsSync(tempVideoPath)) fs.unlink(tempVideoPath, () => {});
+          if (fs.existsSync(tempAudioPath)) fs.unlink(tempAudioPath, () => {});
           if (code3 !== 0) {
             console.error('Failed to merge video and audio');
+            // Clean up merged file on error
+            if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
             conversionProgress.set(conversionId, {
               progress: 0,
               status: 'error',
@@ -456,10 +471,6 @@ app.post('/api/stream-merge', async (req, res) => {
             });
             return;
           }
-
-          // Clean up temp files
-          fs.unlink(tempVideoPath, () => {});
-          fs.unlink(tempAudioPath, () => {});
 
           // Set final progress
           conversionProgress.set(conversionId, {
@@ -480,7 +491,7 @@ app.post('/api/stream-merge', async (req, res) => {
 // Update the /api/download-merged endpoint
 app.get('/api/download-merged', (req, res) => {
   const { conversionId } = req.query;
-  
+
   if (!conversionId) {
     return res.status(400).json({ error: 'Conversion ID is required' });
   }
@@ -504,7 +515,8 @@ app.get('/api/download-merged', (req, res) => {
 
   // Check if the file exists
   if (!fs.existsSync(tempFilePath)) {
-    console.error('File not found:', tempFilePath);
+    // Clean up progress entry if file is missing
+    conversionProgress.delete(conversionId);
     return res.status(404).json({ error: 'File not found' });
   }
 
@@ -516,20 +528,14 @@ app.get('/api/download-merged', (req, res) => {
   const fileStream = fs.createReadStream(tempFilePath);
   fileStream.pipe(res);
 
-  // Clean up the temporary file and progress entry after streaming
-  fileStream.on('end', () => {
-    fs.unlink(tempFilePath, (err) => {
-      if (err) console.error('Error deleting temporary file:', err);
-    });
-    // Remove the progress entry only after the file has been downloaded
+  const cleanup = () => {
+    if (fs.existsSync(tempFilePath)) fs.unlink(tempFilePath, () => {});
     conversionProgress.delete(conversionId);
-  });
+  };
 
-  // Handle errors
-  fileStream.on('error', (err) => {
-    console.error('Error streaming file:', err);
-    res.status(500).json({ error: 'Error streaming file' });
-  });
+  fileStream.on('end', cleanup);
+  fileStream.on('error', cleanup);
+  res.on('close', cleanup); // Clean up if user disconnects
 });
 
 app.post('/api/convert-to-mp4', async (req, res) => {
@@ -611,8 +617,9 @@ app.post('/api/convert-to-mp4', async (req, res) => {
     });
 
     downloadProcess.on('close', (code) => {
-      if (code !== 0) {
-        console.error('Download process failed with code:', code);
+    if (code !== 0) {
+        // Clean up temp file on error
+        if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
         conversionProgress.set(conversionId, {
           progress: 0,
           status: 'error',
@@ -630,6 +637,8 @@ app.post('/api/convert-to-mp4', async (req, res) => {
       });
     });
   } catch (error) {
+    // Clean up temp file on error
+    if (tempFilePath && fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
     console.error('Error in convert-to-mp4:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -650,6 +659,252 @@ app.get('/api/conversion-progress', (req, res) => {
 
   res.json(progress);
 });
+
+// Add audio-to-mp3 endpoint
+app.post('/api/audio-to-mp3', async (req, res) => {
+  try {
+    const { url, title, audioItag, abr } = req.body;
+    if (!url || !title || !audioItag) {
+      return res.status(400).json({ error: 'Audio URL, title, and audioItag are required' });
+    }
+
+    const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
+    const originalUrl = videoUrls.get(videoId) || url;
+    const conversionId = Date.now().toString();
+    const tempAudioPath = path.join(tempDir, `${conversionId}.audio`);
+    const tempMp3Path = path.join(tempDir, `${conversionId}.mp3`);
+    const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50);
+    const filename = `${sanitizedTitle}_HDTube.mp3`;
+
+    // Get video info for expected size
+    let expectedSize = null;
+    try {
+      const ytdlpInfo = await new Promise((resolve, reject) => {
+        const proc = spawn('yt-dlp', [
+          '--dump-json',
+          '--no-playlist',
+          '--no-warnings',
+          originalUrl
+        ]);
+        let output = '';
+        proc.stdout.on('data', (data) => { output += data.toString(); });
+        proc.on('close', (code) => {
+          if (code !== 0) reject(new Error('yt-dlp info failed'));
+          else resolve(JSON.parse(output));
+        });
+      });
+      const format = ytdlpInfo.formats.find(f => f.format_id == audioItag);
+      if (format) {
+        expectedSize = format.filesize || format.filesize_approx || format.clen || null;
+        console.log(`[audio-to-mp3] For itag ${audioItag}, expected size: ${expectedSize} bytes`);
+      } else {
+        console.warn(`[audio-to-mp3] Could not find format for itag ${audioItag}`);
+      }
+    } catch (e) {
+      console.warn('[audio-to-mp3] Could not fetch expected size:', e.message);
+    }
+
+    // Initialize progress
+    conversionProgress.set(conversionId, {
+      progress: 0,
+      status: 'starting',
+      filename: filename,
+      filePath: tempMp3Path
+    });
+
+    // Return the conversion ID immediately
+    res.json({ conversionId: conversionId });
+
+    // Log the yt-dlp command
+    const ytdlpArgs = [
+      '-f', `${audioItag}`,
+      '--no-playlist',
+      '--no-part',
+      '--no-mtime',
+      '--no-continue',
+      '--no-overwrites',
+      '--no-check-certificate',
+      '--no-call-home',
+      '--no-cache-dir',
+      '-o', tempAudioPath,
+      '--newline',
+      '--progress',
+      '--no-simulate',
+      '--no-warnings',
+      originalUrl
+    ];
+    console.log(`[audio-to-mp3] conversionId=${conversionId}, itag=${audioItag}, tempAudioPath=${tempAudioPath}, tempMp3Path=${tempMp3Path}`);
+    console.log('yt-dlp command:', 'yt-dlp', ytdlpArgs.join(' '));
+
+    // Download audio stream
+    const audioProc = spawn('yt-dlp', ytdlpArgs);
+
+    audioProc.stdout.on('data', (data) => {
+      console.log('yt-dlp stdout:', data.toString());
+    });
+    audioProc.stderr.on('data', (data) => {
+      console.log('yt-dlp stderr:', data.toString());
+      const output = data.toString();
+      const match = output.match(/\[download\]\s+(\d+\.?\d+)%/);
+      if (match) {
+        const progress = Math.round(parseFloat(match[1]) * 0.7); // 70% for download
+        conversionProgress.set(conversionId, {
+          progress: progress,
+          status: 'downloading audio',
+          filename: filename,
+          filePath: tempMp3Path
+        });
+      }
+    });
+
+    audioProc.on('close', (code) => {
+      let actualSize = null;
+      if (fs.existsSync(tempAudioPath)) {
+        const stats = fs.statSync(tempAudioPath);
+        actualSize = stats.size;
+        console.log(`[audio-to-mp3] Downloaded audio file size (bytes):`, actualSize);
+        if (expectedSize && Math.abs(actualSize - expectedSize) > 1024 * 100) {
+          console.warn(`[audio-to-mp3] WARNING: Downloaded file size (${actualSize}) does not match expected size (${expectedSize}) for itag ${audioItag}`);
+        }
+      } else {
+        console.log('[audio-to-mp3] Downloaded audio file not found:', tempAudioPath);
+      }
+      if (code !== 0) {
+        // Clean up temp files on error
+        if (fs.existsSync(tempAudioPath)) fs.unlinkSync(tempAudioPath);
+        if (fs.existsSync(tempMp3Path)) fs.unlinkSync(tempMp3Path);
+        conversionProgress.set(conversionId, {
+          progress: 0,
+          status: 'error',
+          filename: filename,
+          filePath: tempMp3Path
+        });
+        return;
+      }
+
+      // Convert to MP3
+      const ffmpegProc = spawn('ffmpeg', [
+        '-i', tempAudioPath,
+        '-vn',
+        '-ar', '44100',
+        '-ac', '2',
+        '-b:a', abr || '128k',
+        '-y',
+        tempMp3Path
+      ]);
+
+      ffmpegProc.stderr.on('data', (data) => {
+        // Optionally parse progress here
+        conversionProgress.set(conversionId, {
+          progress: 90,
+          status: 'converting to mp3',
+          filename: filename,
+          filePath: tempMp3Path
+        });
+      });
+
+      ffmpegProc.on('close', (code2) => {
+        if (fs.existsSync(tempAudioPath)) fs.unlink(tempAudioPath, () => {});
+        if (code2 !== 0) {
+          // Clean up mp3 file on error
+          if (fs.existsSync(tempMp3Path)) fs.unlinkSync(tempMp3Path);
+          conversionProgress.set(conversionId, {
+            progress: 0,
+            status: 'error',
+            filename: filename,
+            filePath: tempMp3Path
+          });
+          return;
+        }
+        // Log final MP3 file size
+        if (fs.existsSync(tempMp3Path)) {
+          const stats = fs.statSync(tempMp3Path);
+          console.log(`[audio-to-mp3] Final MP3 file size (bytes):`, stats.size);
+        }
+        conversionProgress.set(conversionId, {
+          progress: 100,
+          status: 'completed',
+          filename: filename,
+          filePath: tempMp3Path
+        });
+      });
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add download-audio-mp3 endpoint
+app.get('/api/download-audio-mp3', (req, res) => {
+  const { conversionId } = req.query;
+
+  if (!conversionId) {
+    return res.status(400).json({ error: 'Conversion ID is required' });
+  }
+
+  const progress = conversionProgress.get(conversionId);
+  if (!progress) {
+    return res.status(404).json({ error: 'Conversion not found' });
+  }
+
+  if (progress.status !== 'completed') {
+    return res.status(400).json({ error: 'Conversion not completed yet' });
+  }
+
+  const tempFilePath = progress.filePath;
+  if (!tempFilePath) {
+    return res.status(404).json({ error: 'File path not found' });
+  }
+
+  if (!fs.existsSync(tempFilePath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  // Log download details
+  const stats = fs.statSync(tempFilePath);
+  console.log(`[download-audio-mp3] conversionId=${conversionId}, filePath=${tempFilePath}, size=${stats.size}`);
+
+  res.setHeader('Content-Disposition', `attachment; filename="${progress.filename}"`);
+  res.setHeader('Content-Type', 'audio/mpeg');
+
+  const fileStream = fs.createReadStream(tempFilePath);
+  fileStream.pipe(res);
+
+  const cleanup = () => {
+    if (fs.existsSync(tempFilePath)) fs.unlink(tempFilePath, () => {});
+    conversionProgress.delete(conversionId);
+  };
+
+  fileStream.on('end', cleanup);
+  fileStream.on('error', cleanup);
+  res.on('close', cleanup); // Clean up if user disconnects
+});
+
+// Periodic temp file cleanup job (runs every 15 minutes, only deletes files older than 15 minutes)
+setInterval(() => {
+  const activeFiles = new Set();
+  for (const entry of conversionProgress.values()) {
+    if (entry.filePath) activeFiles.add(entry.filePath);
+  }
+  fs.readdir(tempDir, (err, files) => {
+    if (err) return;
+    const now = Date.now();
+    files.forEach(file => {
+      const filePath = path.join(tempDir, file);
+      fs.stat(filePath, (err, stats) => {
+        if (err) return;
+        const ageMinutes = (now - stats.mtimeMs) / (1000 * 60);
+        if (!activeFiles.has(filePath) && ageMinutes > 15) {
+          fs.unlink(filePath, (err) => {
+            if (!err) {
+              console.log('Periodic cleanup: deleted orphaned temp file', filePath);
+            }
+          });
+        }
+      });
+    });
+  });
+}, 15 * 60 * 1000); // Every 15 minutes
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

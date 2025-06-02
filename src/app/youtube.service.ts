@@ -49,4 +49,20 @@ export class YouTubeService {
       audioItag: audioItag
     });
   }
+
+  // Add: Convert audio to MP3
+  audioToMp3(url: string, title: string, audioItag: string, abr: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/audio-to-mp3`, {
+      url: url,
+      title: title,
+      audioItag: audioItag,
+      abr: abr
+    });
+  }
+
+  // Add: Download the converted MP3 file
+  downloadAudioMp3(conversionId: string): void {
+    const downloadUrl = `${this.apiUrl}/download-audio-mp3?conversionId=${encodeURIComponent(conversionId)}`;
+    window.location.href = downloadUrl;
+  }
 }
