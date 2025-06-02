@@ -22,6 +22,9 @@
         Convert and download your favorite YouTube videos effortlessly with HDTube Saver. <br>Experience high-quality video downloads in multiple formats and resolutions. Whether you need HD clarity or specific formats, HDTube Saver has got you covered. <br> <br> Simply enter the YouTube URL and get your video with ease!
         It's the ultimate tool for hassle-free video downloading.
       </p>
+      <p class="seo-helper">
+        Choose from a variety of YouTube video and audio formats to download in HD, MP4, or MP3. HDTube Saver makes YouTube downloading fast and easy.
+      </p>
     </div>
   
     <!-- Input Form -->
@@ -33,7 +36,7 @@
     <!-- Loading Animation -->
     <div *ngIf="isLoading" class="loading-overlay">
       <div class="loading-container">
-        <img src="https://miro.medium.com/v2/resize:fit:1400/0*CwVWKIk3IlAettJn.gif" alt="Loading..." />
+        <img src="../../assets/imgs/loader.gif" alt="Loading..." />
       </div>
     </div>
   
@@ -44,15 +47,17 @@
   </div>
   
 </div>
-
-<!-- <div class="footer">
+<!-- Add visible footer -->
+<div class="footer">
   <div class="footer-content">
     <p class="footer-description">
-      HDTube Saver tool makes video downloading seamless and fast. Contact us at
-      <a href="mailto:support@yourdomain.com">support@gmail.com</a>.
+      HDTube Saver is your free tool for downloading YouTube videos and audio in HD, MP4, and MP3 formats. Fast, easy, and secure.<br>
+      Contact: <a href="mailto:support&#64;hdtube-saver.com">support&#64;hdtube-saver.com</a>
     </p>
     <div class="footer-links">
-      <a href="#privacy">Privacy Policy</a> | <a href="#terms">Terms of Service</a>
+      <a routerLink="/faq">FAQ</a> |
+      <a routerLink="/privacy">Privacy Policy</a> |
+      <a routerLink="/terms">Terms of Service</a>
     </div>
   </div>
-</div> -->
+</div>

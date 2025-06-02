@@ -523,7 +523,7 @@ app.get('/api/download-merged', (req, res) => {
   // Set headers for MP4 download
   res.setHeader('Content-Disposition', `attachment; filename="${progress.filename}"`);
   res.setHeader('Content-Type', 'video/mp4');
-
+  
   // Stream the file to the response
   const fileStream = fs.createReadStream(tempFilePath);
   fileStream.pipe(res);
@@ -800,8 +800,8 @@ app.post('/api/audio-to-mp3', async (req, res) => {
           status: 'converting to mp3',
           filename: filename,
           filePath: tempMp3Path
-        });
-      });
+  });
+});
 
       ffmpegProc.on('close', (code2) => {
         if (fs.existsSync(tempAudioPath)) fs.unlink(tempAudioPath, () => {});

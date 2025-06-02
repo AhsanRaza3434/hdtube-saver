@@ -1,5 +1,6 @@
 import { Component } from '@angular/core';
 import { YouTubeService } from '../youtube.service';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-video-input',
@@ -13,8 +14,27 @@ export class VideoInputComponent {
 
   constructor(private youtubeService: YouTubeService) {}
 
+  // Add: Robust YouTube URL validation
+  isValidYouTubeUrl(url: string): boolean {
+    // Accepts all common YouTube URL formats
+    const regex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)[\w-]{11}([&?].*)?$/;
+    return regex.test(url.trim());
+  }
 
   onSubmit() {
+    if (!this.isValidYouTubeUrl(this.videoUrl)) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Invalid YouTube URL',
+        text: 'Please enter a valid YouTube video URL. Examples:- https://www.youtube.com/watch?v=XXXXXXXXXXX - https://youtu.be/XXXXXXXXXXX',
+        confirmButtonText: 'OK',
+        customClass: {
+          popup: 'swal-compact',
+          title: 'swal-title-compact'
+        }
+      });
+      return;
+    }
     this.isLoading = true; // Show loading GIF
     this.videoDetails = null; // Clear previous details
     this.youtubeService.getVideoDetails(this.videoUrl).subscribe(

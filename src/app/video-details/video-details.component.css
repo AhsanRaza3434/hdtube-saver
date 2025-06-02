@@ -1,5 +1,11 @@
 * {
-  font-family: 'Poppins', sans-serif!important;
+  font-family: 'Roboto', sans-serif!important;
+}
+
+::ng-deep div#swal2-html-container {
+  padding: 0;
+  line-height: 1.6;
+  font-size: 17px;
 }
 
 /* Container styling */
@@ -48,7 +54,7 @@
 
 /* Table header */
 .details-table thead {
-  background: linear-gradient(90deg, #0075dd, #1d82ff);
+  background: linear-gradient(90deg, var(--primary-red), var(--primary-red-dark));
   color: #fff;
   text-transform: uppercase;
 }
@@ -63,7 +69,7 @@
 
 /* Table body */
 .details-table tbody tr {
-  background: #f8faff; /* Light striped rows */
+  background: #ffeeee; /* Light striped rows */
   transition: all 0.3s ease;
 }
 
@@ -87,14 +93,14 @@
 }
 
 /* Hover effect for rows */
-.details-table tbody tr:hover {
-  background: #e3f2fd;
-}
+/* .details-table tbody tr:hover {
+  background: #ffeeee;
+} */
 
 /* Button styling */
 .btn-download {
   padding: 8px 12px;
-  background: #007bff; /* Vibrant blue */
+  background: var(--primary-red); /* Vibrant blue */
   color: white;
   border: none;
   border-radius: 4px;
@@ -106,7 +112,7 @@
 }
 
 .btn-download:hover {
-  background: #0056b3; /* Darker blue on hover */
+  background: var(--primary-red); /* Darker blue on hover */
   /* transform: translateY(-2px); */
 }
 
@@ -144,19 +150,19 @@
   font-size: 16px;
   cursor: pointer;
   border: none;
-  background: #f0f0f0;
+  background: var(--primary-red);
   margin: 0 5px;
   border-radius: 5px;
   transition: background 0.3s ease;
 }
 
 .tab-button.active {
-  background: #007bff;
+  background: var(--primary-red-dark);
   color: #fff;
 }
 
 .tab-button:hover {
-  background: #0056b3;
+  background: var(--primary-red-dark);
   color: #fff;
 }
 

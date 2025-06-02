@@ -8,13 +8,19 @@ import { AppComponent } from './app.component';
 import { VideoInputComponent } from './video-input/video-input.component';
 import { VideoDetailsComponent } from './video-details/video-details.component';
 import { ConversionProgressComponent } from './conversion-progress/conversion-progress.component';
+import { FaqComponent } from './components/faq.component';
+import { PrivacyPolicyComponent } from './components/privacy-policy.component';
+import { TermsOfServiceComponent } from './components/terms-of-service.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     VideoInputComponent,
     VideoDetailsComponent,
-    ConversionProgressComponent
+    ConversionProgressComponent,
+    FaqComponent,
+    PrivacyPolicyComponent,
+    TermsOfServiceComponent
   ],
   imports: [
     BrowserModule,

@@ -71,7 +71,7 @@ import { takeWhile, switchMap, catchError } from 'rxjs/operators';
       width: 48px;
       height: 48px;
       margin: 0 auto;
-      color: #007bff;
+      color: var(--primary-red);
     }
 
     .download-arrow {
@@ -87,7 +87,7 @@ import { takeWhile, switchMap, catchError } from 'rxjs/operators';
       color: #1a1a1a;
       font-size: 1.25rem;
       font-weight: 600;
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Roboto', sans-serif;
       line-height: 1.4;
       word-wrap: break-word;
     }
@@ -104,7 +104,7 @@ import { takeWhile, switchMap, catchError } from 'rxjs/operators';
 
     .progress-bar {
       height: 100%;
-      background: linear-gradient(90deg, #007bff, #00bfff);
+      background: linear-gradient(90deg, var(--primary-red), #00bfff);
       border-radius: 4px;
       transition: width 0.3s ease;
       position: relative;
@@ -125,17 +125,17 @@ import { takeWhile, switchMap, catchError } from 'rxjs/operators';
 
     .progress-text {
       font-weight: 600;
-      color: #007bff;
+      color: var(--primary-red);
       font-size: 1.1rem;
       margin: 0.5rem 0;
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Roboto', sans-serif;
     }
 
     .status-message {
       margin-top: 1rem;
       color: #666;
       font-size: 0.9rem;
-      font-family: 'Poppins', sans-serif;
+      font-family: 'Roboto', sans-serif;
     }
 
     @keyframes fadeIn {
