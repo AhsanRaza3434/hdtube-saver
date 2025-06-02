@@ -26,16 +26,46 @@ const videoUrls = new Map();
 
 // Add at the top with other imports
 const userAgents = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15'
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0'
 ];
 
 // Add this function to get a random user agent
 function getRandomUserAgent() {
   return userAgents[Math.floor(Math.random() * userAgents.length)];
+}
+
+// Add this function to get common headers
+function getCommonHeaders() {
+  return {
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.5',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'DNT': '1',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Cache-Control': 'max-age=0'
+  };
+}
+
+// Add rate limiting
+const rateLimiter = new Map();
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const lastRequest = rateLimiter.get(ip) || 0;
+  if (now - lastRequest < 2000) { // 2 seconds between requests
+    return false;
+  }
+  rateLimiter.set(ip, now);
+  return true;
 }
 
 // Middleware
@@ -62,7 +92,7 @@ app.get('/api/video-details', async (req, res) => {
       console.warn('Could not extract video ID from URL:', url);
     }
 
-    // Use yt-dlp with user agent rotation
+    // Use yt-dlp with Android client approach
     const ytdlpProcess = spawn('./bin/yt-dlp', [
       '--dump-json',
       '--no-playlist',
@@ -70,9 +100,12 @@ app.get('/api/video-details', async (req, res) => {
       '--no-check-certificate',
       '--no-call-home',
       '--no-cache-dir',
-      '--user-agent', getRandomUserAgent(),
       '--geo-bypass',
       '--force-ipv4',
+      '--extractor-args', 'youtube:player_client=android',
+      '--extractor-args', 'youtube:player_skip=webpage',
+      '--extractor-args', 'youtube:player_params={"hl":"en"}',
+      '--extractor-args', 'youtube:player_platform=web',
       url
     ]);
 
@@ -320,7 +353,7 @@ app.post('/api/stream-merge', async (req, res) => {
     // Return the conversion ID immediately
     res.json({ conversionId: conversionId });
 
-    // Download video stream with user agent rotation
+    // Download video stream with Android client approach
     let lastVideoProgress = 0;
     const videoProc = spawn('./bin/yt-dlp', [
       '-f', videoItag,
@@ -332,9 +365,12 @@ app.post('/api/stream-merge', async (req, res) => {
       '--no-check-certificate',
       '--no-call-home',
       '--no-cache-dir',
-      '--user-agent', getRandomUserAgent(),
       '--geo-bypass',
       '--force-ipv4',
+      '--extractor-args', 'youtube:player_client=android',
+      '--extractor-args', 'youtube:player_skip=webpage',
+      '--extractor-args', 'youtube:player_params={"hl":"en"}',
+      '--extractor-args', 'youtube:player_platform=web',
       originalUrl
     ]);
 
