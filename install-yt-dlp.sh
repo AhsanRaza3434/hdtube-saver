@@ -2,15 +2,18 @@
 
 echo "Installing yt-dlp..."
 
-# Install yt-dlp globally
-curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
-chmod +x /usr/local/bin/yt-dlp
+# Create a local bin directory
+mkdir -p ./bin
 
-# Install ffmpeg if not already installed
+# Download yt-dlp to ./bin
+curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ./bin/yt-dlp
+chmod +x ./bin/yt-dlp
+
+# Install ffmpeg if not already installed (if possible)
 if ! command -v ffmpeg &> /dev/null; then
     echo "Installing ffmpeg..."
     apt-get update && apt-get install -y ffmpeg
 fi
 
 # Confirm installation
-yt-dlp --version
+./bin/yt-dlp --version

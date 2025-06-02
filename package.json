@@ -4,7 +4,7 @@
   "scripts": {
     "ng": "ng",
     "prestart": "bash install-yt-dlp.sh",
-    "start": "node server.js",
+    "start": "PATH=./bin:$PATH node server.js",
     "build": "ng build --prod",
     "test": "ng test",
     "lint": "ng lint",
