@@ -15,5 +15,17 @@ if ! command -v ffmpeg &> /dev/null; then
     apt-get update && apt-get install -y ffmpeg
 fi
 
+# Create config directory
+mkdir -p ./config
+
+# Create yt-dlp config file
+cat > ./config/yt-dlp.conf << EOL
+--no-check-certificate
+--no-call-home
+--no-cache-dir
+--geo-bypass
+--force-ipv4
+EOL
+
 # Confirm installation
 ./bin/yt-dlp --version

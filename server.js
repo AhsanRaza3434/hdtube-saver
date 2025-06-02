@@ -15,349 +15,34 @@ const conversionProgress = new Map();
 
 // Add this near the top of the file after the imports
 const tempDir = path.join(__dirname, 'temp');
-const cookiesDir = path.join(__dirname, 'cookies');
 
-// Ensure temp and cookies directories exist
+// Ensure temp directory exists
 if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
-}
-if (!fs.existsSync(cookiesDir)) {
-  fs.mkdirSync(cookiesDir, { recursive: true });
 }
 
 // Add this near the top of the file after the imports
 const videoUrls = new Map();
 
-// Add this near the top of the file after the imports
-const COOKIE_SETS = [
-  {
-    name: 'set1',
-    cookies: `# Netscape HTTP Cookie File
-# https://curl.haxx.se/rfc/cookie_spec.html
-# This is a generated file!  Do not edit.
-
-.youtube.com	TRUE	/	TRUE	1735689600	CONSENT	YES+cb
-.youtube.com	TRUE	/	TRUE	1735689600	VISITOR_INFO1_LIVE	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	YSC	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	GPS	1
-.youtube.com	TRUE	/	TRUE	1735689600	PREF	f4=4000000&tz=UTC
-.youtube.com	TRUE	/	TRUE	1735689600	LOGIN_INFO	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	SID	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	HSID	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	SSID	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	APISID	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	SAPISID	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PAPISID	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PAPISID	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSID	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSID	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSIDTS	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSIDTS	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSIDCC	random_string
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSIDCC	random_string`
-  },
-  {
-    name: 'set2',
-    cookies: `# Netscape HTTP Cookie File
-# https://curl.haxx.se/rfc/cookie_spec.html
-# This is a generated file!  Do not edit.
-
-.youtube.com	TRUE	/	TRUE	1735689600	CONSENT	YES+cb
-.youtube.com	TRUE	/	TRUE	1735689600	VISITOR_INFO1_LIVE	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	YSC	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	GPS	1
-.youtube.com	TRUE	/	TRUE	1735689600	PREF	f4=4000000&tz=UTC
-.youtube.com	TRUE	/	TRUE	1735689600	LOGIN_INFO	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	SID	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	HSID	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	SSID	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	APISID	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	SAPISID	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PAPISID	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PAPISID	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSID	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSID	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSIDTS	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSIDTS	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSIDCC	random_string2
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSIDCC	random_string2`
-  },
-  {
-    name: 'set3',
-    cookies: `# Netscape HTTP Cookie File
-# https://curl.haxx.se/rfc/cookie_spec.html
-# This is a generated file!  Do not edit.
-
-.youtube.com	TRUE	/	TRUE	1735689600	CONSENT	YES+cb
-.youtube.com	TRUE	/	TRUE	1735689600	VISITOR_INFO1_LIVE	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	YSC	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	GPS	1
-.youtube.com	TRUE	/	TRUE	1735689600	PREF	f4=4000000&tz=UTC
-.youtube.com	TRUE	/	TRUE	1735689600	LOGIN_INFO	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	SID	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	HSID	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	SSID	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	APISID	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	SAPISID	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PAPISID	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PAPISID	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSID	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSID	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSIDTS	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSIDTS	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSIDCC	random_string3
-.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSIDCC	random_string3`
-  }
+// Add at the top with other imports
+const userAgents = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15'
 ];
 
-// Add cookie rotation tracking
-let currentCookieSetIndex = 0;
-const cookieStats = new Map(); // Track detailed statistics for each cookie set
-
-// Function to initialize cookie stats
-function initCookieStats(cookiePath) {
-  if (!cookieStats.has(cookiePath)) {
-    cookieStats.set(cookiePath, {
-      success: 0,
-      failure: 0,
-      lastSuccess: null,
-      lastFailure: null,
-      consecutiveFailures: 0,
-      totalRequests: 0,
-      errors: new Map(), // Track specific error types
-      lastUsed: Date.now()
-    });
-  }
-}
-
-// Function to update cookie stats with more details
-function updateCookieStats(cookiePath, success, error = null) {
-  initCookieStats(cookiePath);
-  const stats = cookieStats.get(cookiePath);
-  
-  stats.totalRequests++;
-  stats.lastUsed = Date.now();
-  
-  if (success) {
-    stats.success++;
-    stats.lastSuccess = Date.now();
-    stats.consecutiveFailures = 0;
-  } else {
-    stats.failure++;
-    stats.lastFailure = Date.now();
-    stats.consecutiveFailures++;
-    
-    if (error) {
-      const errorType = error.message || 'unknown';
-      stats.errors.set(errorType, (stats.errors.get(errorType) || 0) + 1);
-    }
-  }
-  
-  cookieStats.set(cookiePath, stats);
-}
-
-// Function to test cookies
-async function testCookies(cookiePath, url) {
-  try {
-    const result = await new Promise((resolve, reject) => {
-      const proc = spawn('yt-dlp', [
-        '--dump-json',
-        '--no-playlist',
-        '--no-warnings',
-        '--cookies', cookiePath,
-        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-        url
-      ]);
-      let output = '';
-      let errorOutput = '';
-      proc.stdout.on('data', (data) => output += data.toString());
-      proc.stderr.on('data', (data) => errorOutput += data.toString());
-      proc.on('close', (code) => {
-        if (code === 0) resolve(true);
-        else reject(new Error(errorOutput || 'Cookie test failed'));
-      });
-    });
-    return result;
-  } catch (e) {
-    console.log('Cookie test failed:', e.message);
-    return false;
-  }
-}
-
-// Function to rotate cookies
-function rotateCookies() {
-  currentCookieSetIndex = (currentCookieSetIndex + 1) % COOKIE_SETS.length;
-  const cookieSet = COOKIE_SETS[currentCookieSetIndex];
-  const cookiePath = path.join(cookiesDir, `default_${cookieSet.name}.txt`);
-  
-  // Ensure the cookie file exists
-  if (!fs.existsSync(cookiePath)) {
-    fs.writeFileSync(cookiePath, cookieSet.cookies);
-  }
-  
-  return cookiePath;
-}
-
-// Update the tryGetCookies function
-async function tryGetCookies(url) {
-  const browsers = ['chrome', 'firefox', 'edge', 'brave', 'opera'];
-  const userAgents = {
-    chrome: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-    firefox: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0',
-    edge: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0',
-    brave: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-    opera: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 OPR/123.0.0.0'
-  };
-
-  // First try with manual cookies if they exist
-  const manualCookiesPath = path.join(cookiesDir, 'youtube.txt');
-  if (fs.existsSync(manualCookiesPath)) {
-    try {
-      const result = await new Promise((resolve, reject) => {
-        const proc = spawn('yt-dlp', [
-          '--dump-json',
-          '--no-playlist',
-          '--no-warnings',
-          '--cookies', manualCookiesPath,
-          '--user-agent', userAgents.chrome,
-          url
-        ]);
-        let output = '';
-        proc.stdout.on('data', (data) => output += data.toString());
-        proc.on('close', (code) => {
-          if (code === 0) resolve({ browser: 'manual', userAgent: userAgents.chrome });
-          else reject(new Error('Manual cookies failed'));
-        });
-      });
-      updateCookieStats(manualCookiesPath, true);
-      return result;
-    } catch (e) {
-      console.log('Manual cookies failed, trying browsers...');
-      updateCookieStats(manualCookiesPath, false);
-    }
-  }
-
-  // Try each browser
-  for (const browser of browsers) {
-    try {
-      const result = await new Promise((resolve, reject) => {
-        const proc = spawn('yt-dlp', [
-          '--dump-json',
-          '--no-playlist',
-          '--no-warnings',
-          '--cookies-from-browser', browser,
-          '--user-agent', userAgents[browser],
-          url
-        ]);
-        let output = '';
-        proc.stdout.on('data', (data) => output += data.toString());
-        proc.on('close', (code) => {
-          if (code === 0) resolve({ browser, userAgent: userAgents[browser] });
-          else reject(new Error(`${browser} cookies failed`));
-        });
-      });
-      return result;
-    } catch (e) {
-      console.log(`${browser} cookies failed, trying next browser...`);
-    }
-  }
-
-  // Try default cookie sets
-  console.log('All browser cookies failed, trying default cookie sets...');
-  
-  // Try each cookie set in rotation
-  for (let i = 0; i < COOKIE_SETS.length; i++) {
-    const cookiePath = rotateCookies();
-    try {
-      const success = await testCookies(cookiePath, url);
-      if (success) {
-        updateCookieStats(cookiePath, true);
-        return {
-          browser: 'default',
-          userAgent: userAgents.chrome,
-          cookiePath
-        };
-      }
-      updateCookieStats(cookiePath, false);
-    } catch (e) {
-      console.log(`Default cookie set ${i + 1} failed, trying next...`);
-      updateCookieStats(cookiePath, false);
-    }
-  }
-
-  console.log('All cookie methods failed, using no cookies...');
-  return {
-    browser: 'none',
-    userAgent: userAgents.chrome,
-    useCookies: false
-  };
+// Add this function to get a random user agent
+function getRandomUserAgent() {
+  return userAgents[Math.floor(Math.random() * userAgents.length)];
 }
 
 // Middleware
 app.use(bodyParser.json());
 app.use(cors());
 
-// Helper function to get yt-dlp arguments with optional cookie support
-function getYtdlpArgs(url, options = {}) {
-  const {
-    format = null,
-    output = null,
-    browser = 'none',
-    userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-    useCookies = false
-  } = options;
-
-  const args = [
-    '--no-playlist',
-    '--no-warnings',
-    '--newline',
-    '--progress',
-    '--no-simulate',
-    '--no-check-certificate',
-    '--no-call-home',
-    '--no-cache-dir'
-  ];
-
-  if (format) {
-    args.push('-f', format);
-  }
-
-  if (output) {
-    args.push('-o', output);
-  }
-
-  if (useCookies) {
-    if (browser === 'manual') {
-      args.push('--cookies', path.join(cookiesDir, 'youtube.txt'));
-    } else if (browser !== 'none') {
-      args.push('--cookies-from-browser', browser);
-    }
-  }
-
-  args.push('--user-agent', userAgent);
-  args.push(url);
-
-  return args;
-}
-
-// Add endpoint to upload cookies
-app.post('/api/upload-cookies', (req, res) => {
-  try {
-    const { cookies } = req.body;
-    if (!cookies) {
-      return res.status(400).json({ error: 'Cookies are required' });
-    }
-
-    const cookiesPath = path.join(cookiesDir, 'youtube.txt');
-    fs.writeFileSync(cookiesPath, cookies);
-    res.json({ message: 'Cookies uploaded successfully' });
-  } catch (error) {
-    console.error('Error uploading cookies:', error);
-    res.status(500).json({ error: 'Failed to upload cookies' });
-  }
-});
-
-// Update the video-details endpoint to use the new system
+// Get video details endpoint
 app.get('/api/video-details', async (req, res) => {
   try {
     const url = req.query.url;
@@ -377,17 +62,20 @@ app.get('/api/video-details', async (req, res) => {
       console.warn('Could not extract video ID from URL:', url);
     }
 
-    // Try to get cookies and user agent
-    const { browser, userAgent, useCookies } = await tryGetCookies(url);
+    // Use yt-dlp with user agent rotation
+    const ytdlpProcess = spawn('./bin/yt-dlp', [
+      '--dump-json',
+      '--no-playlist',
+      '--no-warnings',
+      '--no-check-certificate',
+      '--no-call-home',
+      '--no-cache-dir',
+      '--user-agent', getRandomUserAgent(),
+      '--geo-bypass',
+      '--force-ipv4',
+      url
+    ]);
 
-    // Use yt-dlp to get video info
-    const ytdlpArgs = getYtdlpArgs(url, {
-      browser,
-      userAgent,
-      useCookies
-    });
-
-    const ytdlpProcess = spawn('yt-dlp', ytdlpArgs);
     let output = '';
     let errorOutput = '';
 
@@ -614,10 +302,6 @@ app.post('/api/stream-merge', async (req, res) => {
 
     const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
     const originalUrl = videoUrls.get(videoId) || url;
-
-    // Try to get cookies and user agent
-    const { browser, userAgent, useCookies } = await tryGetCookies(originalUrl);
-
     const conversionId = Date.now().toString();
     const tempVideoPath = path.join(tempDir, `${conversionId}.video.mp4`);
     const tempAudioPath = path.join(tempDir, `${conversionId}.audio.m4a`);
@@ -636,16 +320,23 @@ app.post('/api/stream-merge', async (req, res) => {
     // Return the conversion ID immediately
     res.json({ conversionId: conversionId });
 
-    // Download video stream
+    // Download video stream with user agent rotation
     let lastVideoProgress = 0;
-    const videoArgs = getYtdlpArgs(originalUrl, {
-      format: videoItag,
-      output: tempVideoPath,
-      browser,
-      userAgent,
-      useCookies
-    });
-    const videoProc = spawn('yt-dlp', videoArgs);
+    const videoProc = spawn('./bin/yt-dlp', [
+      '-f', videoItag,
+      '-o', tempVideoPath,
+      '--newline',
+      '--progress',
+      '--no-simulate',
+      '--no-warnings',
+      '--no-check-certificate',
+      '--no-call-home',
+      '--no-cache-dir',
+      '--user-agent', getRandomUserAgent(),
+      '--geo-bypass',
+      '--force-ipv4',
+      originalUrl
+    ]);
 
     console.log('Starting video download with command:', videoProc.spawnargs.join(' '));
 
@@ -700,14 +391,16 @@ app.post('/api/stream-merge', async (req, res) => {
 
       // Download audio stream
       let lastAudioProgress = 0;
-      const audioArgs = getYtdlpArgs(originalUrl, {
-        format: audioItag,
-        output: tempAudioPath,
-        browser,
-        userAgent,
-        useCookies
-      });
-      const audioProc = spawn('yt-dlp', audioArgs);
+      const audioProc = spawn('yt-dlp', [
+        '-f', audioItag,
+        '-o', tempAudioPath,
+        '--newline',
+        '--progress',
+        '--no-simulate',
+        '--no-warnings',
+        '--cookies', './cookies/youtube.txt',
+        originalUrl
+      ]);
 
       console.log('Starting audio download with command:', audioProc.spawnargs.join(' '));
 
@@ -884,17 +577,12 @@ app.post('/api/convert-to-mp4', async (req, res) => {
     const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
     const originalUrl = videoUrls.get(videoId) || url;
 
-    // Try to get cookies and user agent
-    const { browser, userAgent } = await tryGetCookies(originalUrl);
-
     // Get video info using yt-dlp
     const ytdlpProcess = spawn('yt-dlp', [
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
-      browser === 'manual' ? '--cookies' : '--cookies-from-browser',
-      browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
-      '--user-agent', userAgent,
+      '--cookies', './cookies/youtube.txt',
       originalUrl
     ]);
     let output = '';
@@ -936,13 +624,7 @@ app.post('/api/convert-to-mp4', async (req, res) => {
     const downloadProcess = spawn('yt-dlp', [
       '-f', itag,
       '-o', tempFilePath,
-      '--newline',
-      '--progress',
-      '--no-simulate',
-      '--no-warnings',
-      browser === 'manual' ? '--cookies' : '--cookies-from-browser',
-      browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
-      '--user-agent', userAgent,
+      '--cookies', './cookies/youtube.txt',
       originalUrl
     ]);
 
@@ -964,7 +646,7 @@ app.post('/api/convert-to-mp4', async (req, res) => {
     });
 
     downloadProcess.on('close', (code) => {
-      if (code !== 0) {
+    if (code !== 0) {
         // Clean up temp file on error
         if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
         conversionProgress.set(conversionId, {
@@ -984,6 +666,8 @@ app.post('/api/convert-to-mp4', async (req, res) => {
       });
     });
   } catch (error) {
+    // Clean up temp file on error
+    if (tempFilePath && fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
     console.error('Error in convert-to-mp4:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -1015,10 +699,6 @@ app.post('/api/audio-to-mp3', async (req, res) => {
 
     const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
     const originalUrl = videoUrls.get(videoId) || url;
-
-    // Try to get cookies and user agent
-    const { browser, userAgent, useCookies } = await tryGetCookies(originalUrl);
-
     const conversionId = Date.now().toString();
     const tempAudioPath = path.join(tempDir, `${conversionId}.audio`);
     const tempMp3Path = path.join(tempDir, `${conversionId}.mp3`);
@@ -1033,6 +713,7 @@ app.post('/api/audio-to-mp3', async (req, res) => {
           '--dump-json',
           '--no-playlist',
           '--no-warnings',
+          '--cookies', './cookies/youtube.txt',
           originalUrl
         ]);
         let output = '';
@@ -1080,23 +761,14 @@ app.post('/api/audio-to-mp3', async (req, res) => {
       '--progress',
       '--no-simulate',
       '--no-warnings',
-      browser === 'manual' ? '--cookies' : '--cookies-from-browser',
-      browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
-      '--user-agent', userAgent,
+      '--cookies', './cookies/youtube.txt',
       originalUrl
     ];
     console.log(`[audio-to-mp3] conversionId=${conversionId}, itag=${audioItag}, tempAudioPath=${tempAudioPath}, tempMp3Path=${tempMp3Path}`);
     console.log('yt-dlp command:', 'yt-dlp', ytdlpArgs.join(' '));
 
     // Download audio stream
-    const audioArgs = getYtdlpArgs(originalUrl, {
-      format: audioItag,
-      output: tempAudioPath,
-      browser,
-      userAgent,
-      useCookies
-    });
-    const audioProc = spawn('yt-dlp', audioArgs);
+    const audioProc = spawn('yt-dlp', ytdlpArgs);
 
     audioProc.stdout.on('data', (data) => {
       console.log('yt-dlp stdout:', data.toString());
@@ -1264,128 +936,6 @@ setInterval(() => {
     });
   });
 }, 15 * 60 * 1000); // Every 15 minutes
-
-// Add endpoint to get cookie stats
-app.get('/api/cookie-stats', (req, res) => {
-  const stats = {};
-  for (const [path, data] of cookieStats.entries()) {
-    const total = data.success + data.failure;
-    stats[path] = {
-      success: data.success,
-      failure: data.failure,
-      successRate: total > 0 ? (data.success / total * 100).toFixed(2) + '%' : '0%'
-    };
-  }
-  res.json(stats);
-});
-
-// Update the update-default-cookies endpoint
-app.post('/api/update-default-cookies', (req, res) => {
-  try {
-    const { cookies, setName } = req.body;
-    if (!cookies) {
-      return res.status(400).json({ error: 'Cookies are required' });
-    }
-
-    const setIndex = COOKIE_SETS.findIndex(set => set.name === setName);
-    if (setIndex === -1) {
-      return res.status(400).json({ error: 'Invalid cookie set name' });
-    }
-
-    const cookiePath = path.join(cookiesDir, `default_${setName}.txt`);
-    fs.writeFileSync(cookiePath, cookies);
-    
-    // Reset stats for this cookie set
-    cookieStats.delete(cookiePath);
-    
-    res.json({ 
-      message: 'Default cookies updated successfully',
-      set: setName
-    });
-  } catch (error) {
-    console.error('Error updating default cookies:', error);
-    res.status(500).json({ error: 'Failed to update default cookies' });
-  }
-});
-
-// Add endpoint to force cookie cleanup
-app.post('/api/cleanup-cookies', (req, res) => {
-  try {
-    cleanupCookieSets();
-    res.json({ message: 'Cookie cleanup completed' });
-  } catch (error) {
-    console.error('Error during cookie cleanup:', error);
-    res.status(500).json({ error: 'Failed to clean up cookies' });
-  }
-});
-
-// Function to clean up old cookie sets
-function cleanupCookieSets() {
-  const now = Date.now();
-  const MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
-  const MAX_FAILURES = 10; // Maximum consecutive failures before cleanup
-  
-  for (const [path, stats] of cookieStats.entries()) {
-    const age = now - stats.lastUsed;
-    if (age > MAX_AGE || stats.consecutiveFailures > MAX_FAILURES) {
-      try {
-        if (fs.existsSync(path)) {
-          fs.unlinkSync(path);
-          console.log(`Cleaned up old cookie set: ${path}`);
-        }
-        cookieStats.delete(path);
-      } catch (error) {
-        console.error(`Error cleaning up cookie set ${path}:`, error);
-      }
-    }
-  }
-}
-
-// Update the cookie stats endpoint
-app.get('/api/cookie-stats', (req, res) => {
-  const stats = {};
-  for (const [path, data] of cookieStats.entries()) {
-    const total = data.success + data.failure;
-    const successRate = total > 0 ? (data.success / total * 100).toFixed(2) + '%' : '0%';
-    
-    // Calculate time since last success/failure
-    const lastSuccess = data.lastSuccess ? new Date(data.lastSuccess).toISOString() : 'Never';
-    const lastFailure = data.lastFailure ? new Date(data.lastFailure).toISOString() : 'Never';
-    
-    // Get most common errors
-    const commonErrors = Array.from(data.errors.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([error, count]) => ({ error, count }));
-    
-    stats[path] = {
-      success: data.success,
-      failure: data.failure,
-      successRate,
-      totalRequests: data.totalRequests,
-      consecutiveFailures: data.consecutiveFailures,
-      lastSuccess,
-      lastFailure,
-      lastUsed: new Date(data.lastUsed).toISOString(),
-      commonErrors
-    };
-  }
-  res.json(stats);
-});
-
-// Add endpoint to force cookie cleanup
-app.post('/api/cleanup-cookies', (req, res) => {
-  try {
-    cleanupCookieSets();
-    res.json({ message: 'Cookie cleanup completed' });
-  } catch (error) {
-    console.error('Error during cookie cleanup:', error);
-    res.status(500).json({ error: 'Failed to clean up cookies' });
-  }
-});
-
-// Add periodic cookie cleanup
-setInterval(cleanupCookieSets, 60 * 60 * 1000); // Run cleanup every hour
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
