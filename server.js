@@ -24,37 +24,6 @@ if (!fs.existsSync(tempDir)) {
 // Add this near the top of the file after the imports
 const videoUrls = new Map();
 
-// Add at the top with other imports
-const userAgents = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
-  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-];
-
-// Add this function to get a random user agent
-function getRandomUserAgent() {
-  return userAgents[Math.floor(Math.random() * userAgents.length)];
-}
-
-// Add delay function
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-// Add retry function
-async function retryOperation(operation, maxRetries = 3, delayMs = 2000) {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await operation();
-    } catch (error) {
-      if (i === maxRetries - 1) throw error;
-      console.log(`Attempt ${i + 1} failed, retrying in ${delayMs}ms...`);
-      await delay(delayMs);
-    }
-  }
-}
-
 // Middleware
 app.use(bodyParser.json());
 app.use(cors());
@@ -79,50 +48,44 @@ app.get('/api/video-details', async (req, res) => {
       console.warn('Could not extract video ID from URL:', url);
     }
 
-    // Use retry mechanism for yt-dlp
-    const result = await retryOperation(async () => {
-      return new Promise((resolve, reject) => {
-        const ytdlpProcess = spawn('./bin/yt-dlp', [
-          '--dump-json',
-          '--no-playlist',
-          '--no-warnings',
-          '--no-check-certificate',
-          '--no-call-home',
-          '--no-cache-dir',
-          '--user-agent', getRandomUserAgent(),
-          '--geo-bypass',
-          '--force-ipv4',
-          '--extractor-args', 'youtube:player_client=android',
-          '--extractor-args', 'youtube:player_skip=webpage',
-          '--extractor-args', 'youtube:player_params={"hl":"en"}',
-          url
-        ]);
+    // Use yt-dlp to get video info with additional options
+    const ytdlpProcess = spawn('yt-dlp', [
+      '--dump-json',
+      '--no-playlist',
+      '--no-warnings',
+      '--no-check-certificate',
+      '--no-call-home',
+      '--no-cache-dir',
+      '--extractor-args', 'youtube:player_client=android',
+      '--user-agent', 'Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36',
+      url
+    ]);
 
-        let output = '';
-        let errorOutput = '';
+    let output = '';
+    let errorOutput = '';
 
-        ytdlpProcess.stdout.on('data', (data) => {
-          output += data.toString();
-        });
+    ytdlpProcess.stdout.on('data', (data) => {
+      output += data.toString();
+    });
 
-        ytdlpProcess.stderr.on('data', (data) => {
-          errorOutput += data.toString();
-          console.error('yt-dlp stderr:', data.toString());
-        });
+    ytdlpProcess.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+      console.error('yt-dlp stderr:', data.toString());
+    });
 
-        ytdlpProcess.on('close', (code) => {
-          if (code !== 0) {
-            console.error('yt-dlp process failed with code:', code);
-            console.error('Error output:', errorOutput);
-            reject(new Error(`yt-dlp process failed with code ${code}`));
-            return;
-          }
-          resolve(output);
-        });
+    await new Promise((resolve, reject) => {
+      ytdlpProcess.on('close', (code) => {
+        if (code !== 0) {
+          console.error('yt-dlp process failed with code:', code);
+          console.error('Error output:', errorOutput);
+          reject(new Error(`yt-dlp process failed with code ${code}`));
+          return;
+        }
+        resolve();
       });
     });
 
-    const videoInfo = JSON.parse(result);
+    const videoInfo = JSON.parse(output);
     console.log('Raw formats from yt-dlp:', videoInfo.formats);
     console.log('Video info fetched successfully');
 
@@ -342,9 +305,9 @@ app.post('/api/stream-merge', async (req, res) => {
     // Return the conversion ID immediately
     res.json({ conversionId: conversionId });
 
-    // Download video stream with user agent rotation
+    // Download video stream with additional options
     let lastVideoProgress = 0;
-    const videoProc = spawn('./bin/yt-dlp', [
+    const videoProc = spawn('yt-dlp', [
       '-f', videoItag,
       '-o', tempVideoPath,
       '--newline',
@@ -354,9 +317,8 @@ app.post('/api/stream-merge', async (req, res) => {
       '--no-check-certificate',
       '--no-call-home',
       '--no-cache-dir',
-      '--user-agent', getRandomUserAgent(),
-      '--geo-bypass',
-      '--force-ipv4',
+      '--extractor-args', 'youtube:player_client=android',
+      '--user-agent', 'Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36',
       originalUrl
     ]);
 
@@ -411,7 +373,7 @@ app.post('/api/stream-merge', async (req, res) => {
         return;
       }
 
-      // Download audio stream
+      // Download audio stream with additional options
       let lastAudioProgress = 0;
       const audioProc = spawn('yt-dlp', [
         '-f', audioItag,
@@ -420,7 +382,11 @@ app.post('/api/stream-merge', async (req, res) => {
         '--progress',
         '--no-simulate',
         '--no-warnings',
-        '--cookies', './cookies/youtube.txt',
+        '--no-check-certificate',
+        '--no-call-home',
+        '--no-cache-dir',
+        '--extractor-args', 'youtube:player_client=android',
+        '--user-agent', 'Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36',
         originalUrl
       ]);
 
@@ -604,7 +570,6 @@ app.post('/api/convert-to-mp4', async (req, res) => {
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
-      '--cookies', './cookies/youtube.txt',
       originalUrl
     ]);
     let output = '';
@@ -646,7 +611,6 @@ app.post('/api/convert-to-mp4', async (req, res) => {
     const downloadProcess = spawn('yt-dlp', [
       '-f', itag,
       '-o', tempFilePath,
-      '--cookies', './cookies/youtube.txt',
       originalUrl
     ]);
 
@@ -735,7 +699,11 @@ app.post('/api/audio-to-mp3', async (req, res) => {
           '--dump-json',
           '--no-playlist',
           '--no-warnings',
-          '--cookies', './cookies/youtube.txt',
+          '--no-check-certificate',
+          '--no-call-home',
+          '--no-cache-dir',
+          '--extractor-args', 'youtube:player_client=android',
+          '--user-agent', 'Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36',
           originalUrl
         ]);
         let output = '';
@@ -778,12 +746,13 @@ app.post('/api/audio-to-mp3', async (req, res) => {
       '--no-check-certificate',
       '--no-call-home',
       '--no-cache-dir',
+      '--extractor-args', 'youtube:player_client=android',
+      '--user-agent', 'Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36',
       '-o', tempAudioPath,
       '--newline',
       '--progress',
       '--no-simulate',
       '--no-warnings',
-      '--cookies', './cookies/youtube.txt',
       originalUrl
     ];
     console.log(`[audio-to-mp3] conversionId=${conversionId}, itag=${audioItag}, tempAudioPath=${tempAudioPath}, tempMp3Path=${tempMp3Path}`);

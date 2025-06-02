@@ -1,5 +1,31 @@
 #!/bin/bash
 
+echo "Installing dependencies..."
+
+# Install Chrome and its dependencies
+apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    unzip \
+    xvfb \
+    libxi6 \
+    libgconf-2-4 \
+    libnss3 \
+    libfontconfig1 \
+    libxcb1 \
+    libxrandr2 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libgtk-3-0 \
+    libgdk-pixbuf2.0-0
+
+# Install Chrome
+wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
+echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list
+apt-get update && apt-get install -y google-chrome-stable
+
 echo "Installing yt-dlp..."
 
 # Create a local bin directory
@@ -9,32 +35,11 @@ mkdir -p ./bin
 curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ./bin/yt-dlp
 chmod +x ./bin/yt-dlp
 
-# Install ffmpeg if not already installed (if possible)
+# Install ffmpeg if not already installed
 if ! command -v ffmpeg &> /dev/null; then
     echo "Installing ffmpeg..."
     apt-get update && apt-get install -y ffmpeg
 fi
-
-# Create config directory
-mkdir -p ./config
-
-# Create yt-dlp config file with additional settings
-cat > ./config/yt-dlp.conf << EOL
---no-check-certificate
---no-call-home
---no-cache-dir
---geo-bypass
---force-ipv4
---extractor-args youtube:player_client=android
---extractor-args youtube:player_skip=webpage
---extractor-args youtube:player_params={"hl":"en"}
---socket-timeout 30
---retries 10
---fragment-retries 10
---file-access-retries 10
---extractor-retries 10
---downloader-args "aria2c:--min-split-size=1M --max-connection-per-server=16 --max-concurrent-downloads=16 --split=16"
-EOL
 
 # Confirm installation
 ./bin/yt-dlp --version
