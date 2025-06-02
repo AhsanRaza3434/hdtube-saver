@@ -8,7 +8,7 @@ import { map, switchMap, takeWhile } from 'rxjs/operators';
 })
 export class YouTubeService {
   // public apiUrl = 'https://hdtube-saver.onrender.com/api';
-  public apiUrl = 'http://localhost:3000/api';
+  public apiUrl = 'https://hdtube-saver.onrender.com/api';
 
   constructor(private http: HttpClient) {}
 
