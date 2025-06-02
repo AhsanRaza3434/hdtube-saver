@@ -94,7 +94,13 @@ async function tryGetCookies(url) {
     }
   }
 
-  throw new Error('All cookie methods failed');
+  // If all cookie methods fail, return a default configuration
+  console.log('All cookie methods failed, using default configuration');
+  return {
+    browser: 'none',
+    userAgent: userAgents.chrome,
+    noCookies: true
+  };
 }
 
 // Add endpoint to upload cookies
@@ -114,7 +120,7 @@ app.post('/api/upload-cookies', (req, res) => {
   }
 });
 
-// Modify the video-details endpoint to use the new cookie system
+// Modify the video-details endpoint to handle no-cookie case
 app.get('/api/video-details', async (req, res) => {
   try {
     const url = req.query.url;
@@ -135,18 +141,27 @@ app.get('/api/video-details', async (req, res) => {
     }
 
     // Try to get cookies and user agent
-    const { browser, userAgent } = await tryGetCookies(url);
+    const { browser, userAgent, noCookies } = await tryGetCookies(url);
 
     // Use yt-dlp to get video info with cookies
-    const ytdlpProcess = spawn('yt-dlp', [
+    const ytdlpArgs = [
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
-      browser === 'manual' ? '--cookies' : '--cookies-from-browser',
-      browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
-      '--user-agent', userAgent,
-      url
-    ]);
+      '--user-agent', userAgent
+    ];
+
+    // Only add cookie arguments if we have cookies
+    if (!noCookies) {
+      ytdlpArgs.push(
+        browser === 'manual' ? '--cookies' : '--cookies-from-browser',
+        browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser
+      );
+    }
+
+    ytdlpArgs.push(url);
+
+    const ytdlpProcess = spawn('yt-dlp', ytdlpArgs);
 
     let output = '';
     let errorOutput = '';
@@ -376,7 +391,7 @@ app.post('/api/stream-merge', async (req, res) => {
     const originalUrl = videoUrls.get(videoId) || url;
 
     // Try to get cookies and user agent
-    const { browser, userAgent } = await tryGetCookies(originalUrl);
+    const { browser, userAgent, noCookies } = await tryGetCookies(originalUrl);
 
     const conversionId = Date.now().toString();
     const tempVideoPath = path.join(tempDir, `${conversionId}.video.mp4`);
@@ -398,18 +413,27 @@ app.post('/api/stream-merge', async (req, res) => {
 
     // Download video stream
     let lastVideoProgress = 0;
-    const videoProc = spawn('yt-dlp', [
+    const videoArgs = [
       '-f', videoItag,
       '-o', tempVideoPath,
       '--newline',
       '--progress',
       '--no-simulate',
       '--no-warnings',
-      browser === 'manual' ? '--cookies' : '--cookies-from-browser',
-      browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
-      '--user-agent', userAgent,
-      originalUrl
-    ]);
+      '--user-agent', userAgent
+    ];
+
+    // Only add cookie arguments if we have cookies
+    if (!noCookies) {
+      videoArgs.push(
+        browser === 'manual' ? '--cookies' : '--cookies-from-browser',
+        browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser
+      );
+    }
+
+    videoArgs.push(originalUrl);
+
+    const videoProc = spawn('yt-dlp', videoArgs);
 
     console.log('Starting video download with command:', videoProc.spawnargs.join(' '));
 
@@ -464,18 +488,27 @@ app.post('/api/stream-merge', async (req, res) => {
 
       // Download audio stream
       let lastAudioProgress = 0;
-      const audioProc = spawn('yt-dlp', [
+      const audioArgs = [
         '-f', audioItag,
         '-o', tempAudioPath,
         '--newline',
         '--progress',
         '--no-simulate',
         '--no-warnings',
-        browser === 'manual' ? '--cookies' : '--cookies-from-browser',
-        browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
-        '--user-agent', userAgent,
-        originalUrl
-      ]);
+        '--user-agent', userAgent
+      ];
+
+      // Only add cookie arguments if we have cookies
+      if (!noCookies) {
+        audioArgs.push(
+          browser === 'manual' ? '--cookies' : '--cookies-from-browser',
+          browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser
+        );
+      }
+
+      audioArgs.push(originalUrl);
+
+      const audioProc = spawn('yt-dlp', audioArgs);
 
       console.log('Starting audio download with command:', audioProc.spawnargs.join(' '));
 
@@ -653,18 +686,27 @@ app.post('/api/convert-to-mp4', async (req, res) => {
     const originalUrl = videoUrls.get(videoId) || url;
 
     // Try to get cookies and user agent
-    const { browser, userAgent } = await tryGetCookies(originalUrl);
+    const { browser, userAgent, noCookies } = await tryGetCookies(originalUrl);
 
     // Get video info using yt-dlp
-    const ytdlpProcess = spawn('yt-dlp', [
+    const infoArgs = [
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
-      browser === 'manual' ? '--cookies' : '--cookies-from-browser',
-      browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
-      '--user-agent', userAgent,
-      originalUrl
-    ]);
+      '--user-agent', userAgent
+    ];
+
+    // Only add cookie arguments if we have cookies
+    if (!noCookies) {
+      infoArgs.push(
+        browser === 'manual' ? '--cookies' : '--cookies-from-browser',
+        browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser
+      );
+    }
+
+    infoArgs.push(originalUrl);
+
+    const ytdlpProcess = spawn('yt-dlp', infoArgs);
     let output = '';
     ytdlpProcess.stdout.on('data', (data) => {
       output += data.toString();
@@ -701,18 +743,27 @@ app.post('/api/convert-to-mp4', async (req, res) => {
     res.json({ conversionId: conversionId });
 
     // Download using yt-dlp with specific format
-    const downloadProcess = spawn('yt-dlp', [
+    const downloadArgs = [
       '-f', itag,
       '-o', tempFilePath,
       '--newline',
       '--progress',
       '--no-simulate',
       '--no-warnings',
-      browser === 'manual' ? '--cookies' : '--cookies-from-browser',
-      browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
-      '--user-agent', userAgent,
-      originalUrl
-    ]);
+      '--user-agent', userAgent
+    ];
+
+    // Only add cookie arguments if we have cookies
+    if (!noCookies) {
+      downloadArgs.push(
+        browser === 'manual' ? '--cookies' : '--cookies-from-browser',
+        browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser
+      );
+    }
+
+    downloadArgs.push(originalUrl);
+
+    const downloadProcess = spawn('yt-dlp', downloadArgs);
 
     downloadProcess.stderr.on('data', (data) => {
       const output = data.toString();
@@ -785,7 +836,7 @@ app.post('/api/audio-to-mp3', async (req, res) => {
     const originalUrl = videoUrls.get(videoId) || url;
 
     // Try to get cookies and user agent
-    const { browser, userAgent } = await tryGetCookies(originalUrl);
+    const { browser, userAgent, noCookies } = await tryGetCookies(originalUrl);
 
     const conversionId = Date.now().toString();
     const tempAudioPath = path.join(tempDir, `${conversionId}.audio`);
@@ -848,13 +899,18 @@ app.post('/api/audio-to-mp3', async (req, res) => {
       '--progress',
       '--no-simulate',
       '--no-warnings',
-      browser === 'manual' ? '--cookies' : '--cookies-from-browser',
-      browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser,
-      '--user-agent', userAgent,
-      originalUrl
+      '--user-agent', userAgent
     ];
-    console.log(`[audio-to-mp3] conversionId=${conversionId}, itag=${audioItag}, tempAudioPath=${tempAudioPath}, tempMp3Path=${tempMp3Path}`);
-    console.log('yt-dlp command:', 'yt-dlp', ytdlpArgs.join(' '));
+
+    // Only add cookie arguments if we have cookies
+    if (!noCookies) {
+      ytdlpArgs.push(
+        browser === 'manual' ? '--cookies' : '--cookies-from-browser',
+        browser === 'manual' ? path.join(cookiesDir, 'youtube.txt') : browser
+      );
+    }
+
+    ytdlpArgs.push(originalUrl);
 
     // Download audio stream
     const audioProc = spawn('yt-dlp', ytdlpArgs);
@@ -920,8 +976,8 @@ app.post('/api/audio-to-mp3', async (req, res) => {
           status: 'converting to mp3',
           filename: filename,
           filePath: tempMp3Path
-  });
-});
+        });
+      });
 
       ffmpegProc.on('close', (code2) => {
         if (fs.existsSync(tempAudioPath)) fs.unlink(tempAudioPath, () => {});
