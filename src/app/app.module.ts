@@ -7,12 +7,14 @@ import { HttpClientModule } from '@angular/common/http';
 import { AppComponent } from './app.component';
 import { VideoInputComponent } from './video-input/video-input.component';
 import { VideoDetailsComponent } from './video-details/video-details.component';
+import { ConversionProgressComponent } from './conversion-progress/conversion-progress.component';
 
 @NgModule({
   declarations: [
     AppComponent,
     VideoInputComponent,
-    VideoDetailsComponent
+    VideoDetailsComponent,
+    ConversionProgressComponent
   ],
   imports: [
     BrowserModule,

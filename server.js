@@ -2,192 +2,654 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const { spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const ytdl = require('ytdl-core');
+const https = require('https');
 
 const app = express();
 const PORT = 3000;
+
+// Store conversion progress
+const conversionProgress = new Map();
+
+// Add this near the top of the file after the imports
+const tempDir = path.join(__dirname, 'temp');
+
+// Ensure temp directory exists
+if (!fs.existsSync(tempDir)) {
+  fs.mkdirSync(tempDir, { recursive: true });
+}
+
+// Add this near the top of the file after the imports
+const videoUrls = new Map();
 
 // Middleware
 app.use(bodyParser.json());
 app.use(cors());
 
-app.post('/api/video-details', (req, res) => {
-  const { url } = req.body;
-
-  if (!url) {
-    return res.status(400).json({ error: 'Invalid YouTube URL' });
-  }
-
+// Get video details endpoint
+app.get('/api/video-details', async (req, res) => {
   try {
-    const process = spawn('yt-dlp', ['-j', url]);
+    const url = req.query.url;
+  if (!url) {
+      console.error('URL is missing from request');
+      return res.status(400).json({ error: 'URL is required' });
+    }
+
+    console.log('Fetching details for URL:', url);
+
+    // Store the original URL
+    const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
+    if (videoId) {
+      videoUrls.set(videoId, url);
+      console.log('Stored video ID:', videoId);
+    } else {
+      console.warn('Could not extract video ID from URL:', url);
+    }
+
+    // Use yt-dlp to get video info
+    const ytdlpProcess = spawn('yt-dlp', [
+      '--dump-json',
+      '--no-playlist',
+      '--no-warnings',
+      url
+    ]);
 
     let output = '';
+    let errorOutput = '';
 
-    process.stdout.on('data', (data) => {
+    ytdlpProcess.stdout.on('data', (data) => {
       output += data.toString();
     });
 
-    process.stderr.on('data', (data) => {
-      console.error('Error:', data.toString());
+    ytdlpProcess.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+      console.error('yt-dlp stderr:', data.toString());
     });
 
-    process.on('close', (code) => {
+    await new Promise((resolve, reject) => {
+      ytdlpProcess.on('close', (code) => {
       if (code !== 0) {
-        return res.status(500).json({ error: 'Failed to fetch video details' });
-      }
-
-      try {
-        const videoDetails = JSON.parse(output);
-
-        // Get video formats that include both video and audio
-        let videoFormats = videoDetails.formats
-          .filter(
-            (format) =>
-              format.ext === 'mp4' && // Must be MP4
-              format.url && // Must have a URL
-              format.acodec !== 'none' && // Includes audio
-              format.vcodec !== 'none' && // Includes video
-              (format.filesize || format.filesize_approx) // Must have size information
-          )
-          .map((format) => ({
-            resolution: format.resolution || `${format.width}x${format.height}` || 'Unknown',
-            quality: format.quality_label || 'Unknown',
-            format: format.ext,
-            size: format.filesize
-              ? `${(format.filesize / (1024 * 1024)).toFixed(2)} MB`
-              : format.filesize_approx
-              ? `${(format.filesize_approx / (1024 * 1024)).toFixed(2)} MB`
-              : 'Unknown',
-            url: format.url,
-          }));
-
-        // If no video formats with audio, pair best audio with video-only formats
-        if (videoFormats.length === 0) {
-          const videoOnlyFormats = videoDetails.formats.filter(
-            (format) =>
-              format.vcodec !== 'none' && format.acodec === 'none' && format.url // Video-only formats
-          );
-          const bestAudio = videoDetails.formats
-            .filter((format) => format.acodec !== 'none' && format.vcodec === 'none' && format.url) // Audio-only formats
-            .sort((a, b) => b.abr - a.abr)[0]; // Best audio format
-
-          videoFormats = videoOnlyFormats.map((format) => ({
-            resolution: format.resolution || `${format.width}x${format.height}` || 'Unknown',
-            quality: format.quality_label || 'Unknown',
-            format: format.ext,
-            size: format.filesize
-              ? `${(format.filesize / (1024 * 1024)).toFixed(2)} MB`
-              : format.filesize_approx
-              ? `${(format.filesize_approx / (1024 * 1024)).toFixed(2)} MB`
-              : 'Unknown',
-            url: format.url,
-            pairedAudio: bestAudio ? bestAudio.url : null, // Pair video-only with audio
-          }));
+          console.error('yt-dlp process failed with code:', code);
+          console.error('Error output:', errorOutput);
+          reject(new Error(`yt-dlp process failed with code ${code}`));
+          return;
         }
+        resolve();
+      });
+    });
 
-        // Deduplicate formats by resolution
-        const uniqueVideoFormats = Object.values(
-          videoFormats.reduce((acc, format) => {
-            if (
-              acc[format.resolution] &&
-              parseFloat(format.size) > parseFloat(acc[format.resolution].size)
-            ) {
-              return acc; // Keep the smaller size
-            }
-            acc[format.resolution] = format;
-            return acc;
-          }, {})
-        );
+    const videoInfo = JSON.parse(output);
+    console.log('Raw formats from yt-dlp:', videoInfo.formats);
+    console.log('Video info fetched successfully');
 
-        // Get valid audio formats
-        const audioFormats = videoDetails.formats
-          .filter(
-            (format) =>
-              (format.ext === 'mp3' || format.ext === 'webm') && // Allow MP3 and WebM formats
-              format.url && // Must have a URL
-              format.acodec !== 'none' && // Must include audio
-              format.vcodec === 'none' // Exclude video
-          )
-          .sort((a, b) => b.abr - a.abr) // Sort by bitrate (highest first)
-          .map((format) => ({
-            quality: format.abr ? `${Math.round(format.abr)} kbps` : 'Unknown',
+    // Helper to get size in MB, only from filesize, filesize_approx, or clen
+    function getSizeMB(format) {
+      let sizeBytes = format.filesize || format.filesize_approx || format.clen || null;
+      if (!sizeBytes) return 'UNKNOWN';
+      if (typeof sizeBytes === 'string') sizeBytes = parseInt(sizeBytes);
+      if (isNaN(sizeBytes) || sizeBytes <= 0) return 'UNKNOWN';
+      return `${(sizeBytes / (1024 * 1024)).toFixed(2)} MB`;
+    }
+
+    // Process video formats: only direct video files, not manifests
+    const seenResolutions = new Set();
+    const videoFormats = videoInfo.formats
+      .filter(format => {
+        // Only direct video files, not manifests
+        if (!format.url) return false;
+        if (format.url.includes('manifest.googlevideo.com')) return false;
+        if (format.url.endsWith('.m3u8') || format.url.endsWith('.mpd')) return false;
+        if (format.vcodec === 'none') return false; // skip audio-only
+        // Only show formats with a real size
+        if (!format.filesize && !format.filesize_approx && !format.clen) return false;
+        // Only mp4/webm containers
+        if (!(format.ext === 'mp4' || format.ext === 'webm')) return false;
+        // Only 240p and above
+        const height = format.height || 0;
+        if (height < 240) return false;
+        return true;
+      })
+      .sort((a, b) => (b.height || 0) - (a.height || 0)) // Highest to lowest
+      .filter(format => {
+        // Only keep the best quality for each resolution
+        const resKey = `${format.width || ''}x${format.height || ''}`;
+        if (seenResolutions.has(resKey)) return false;
+        seenResolutions.add(resKey);
+        return true;
+      })
+      .map(format => ({
+        itag: format.format_id,
+        resolution: format.resolution || (format.height ? `${format.height}p` : 'unknown'),
             format: format.ext,
-            size: format.filesize
-              ? `${(format.filesize / (1024 * 1024)).toFixed(2)} MB`
-              : 'Unknown',
+        size: getSizeMB(format),
             url: format.url,
+        hasAudio: format.acodec !== 'none',
+        needsMerging: format.acodec === 'none',
+      }));
+
+    // Process audio formats: best audio only, unique by abr
+    const seenAudio = new Set();
+    const audioFormats = videoInfo.formats
+      .filter(format => format.vcodec === 'none' && format.acodec !== 'none' && format.url)
+      .sort((a, b) => (b.abr || 0) - (a.abr || 0))
+      .filter(format => {
+        // Only keep the best for each bitrate
+        const key = `${format.abr || format.format_id}`;
+        if (seenAudio.has(key)) return false;
+        seenAudio.add(key);
+        return true;
+      })
+      .map(format => ({
+        itag: format.format_id,
+        quality: format.abr ? `${format.abr}kbps` : 'audio',
+            format: format.ext,
+        size: getSizeMB(format),
+        url: format.url
+      }));
+
+    console.log('Processed formats:', {
+      videoFormats: videoFormats.length,
+      audioFormats: audioFormats.length
+    });
+
+    const response = {
+      title: videoInfo.title,
+      thumbnail: videoInfo.thumbnail,
+      videoFormats,
+      audioFormats,
+      originalUrl: url
+    };
+
+    console.log('Sending response for video:', videoInfo.title);
+    res.json(response);
+  } catch (error) {
+    console.error('Detailed error in video-details endpoint:', {
+      message: error.message,
+      stack: error.stack,
+      url: req.query.url
+    });
+    
+    res.status(500).json({ 
+      error: 'Failed to fetch video details',
+      details: error.message
+    });
+  }
+});
+
+// Also keep the POST endpoint for backward compatibility
+app.post('/api/video-details', async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) {
+      return res.status(400).json({ error: 'URL is required' });
+    }
+
+    // Store the original URL
+    const videoId = url.split('v=')[1]?.split('&')[0];
+    if (videoId) {
+      videoUrls.set(videoId, url);
+    }
+
+    const info = await ytdl.getInfo(url);
+    const formats = ytdl.filterFormats(info.formats, 'videoandaudio');
+
+    // Group formats by type
+    const videoFormats = formats
+      .filter(format => format.hasVideo)
+      .map(format => ({
+        itag: format.itag,
+        quality: format.qualityLabel || format.quality,
+        mimeType: format.mimeType,
+        hasAudio: format.hasAudio,
+        url: format.url,
+        container: format.container,
+        contentLength: format.contentLength,
+        pairedAudio: format.hasAudio ? null : formats.find(f => f.hasAudio && !f.hasVideo)?.url
+      }));
+
+    const audioFormats = formats
+      .filter(format => !format.hasVideo && format.hasAudio)
+      .map(format => ({
+        itag: format.itag,
+        quality: format.audioQuality || 'audio',
+        mimeType: format.mimeType,
+            url: format.url,
+        container: format.container,
+        contentLength: format.contentLength
           }));
 
-        // Send response
         res.json({
-          title: videoDetails.title,
-          thumbnail: videoDetails.thumbnail,
-          videoFormats: uniqueVideoFormats,
-          audioFormats: audioFormats,
-        });
-      } catch (err) {
-        console.error('Error parsing video details:', err.message);
-        res.status(500).json({ error: 'Error parsing video details' });
-      }
+      title: info.videoDetails.title,
+      thumbnail: info.videoDetails.thumbnails[0].url,
+      videoFormats,
+      audioFormats,
+      originalUrl: url
     });
   } catch (error) {
-    console.error('Error:', error.message);
-    res.status(500).json({ error: 'Error fetching video details' });
+    console.error('Error fetching video details:', error);
+    res.status(500).json({ error: 'Failed to fetch video details' });
   }
 });
 
 // Download video using yt-dlp
-app.get('/api/download', (req, res) => {
-  const { url } = req.query;
-
-  if (!url) {
-    return res.status(400).json({ error: 'Invalid URL' });
-  }
-
+app.get('/api/download', async (req, res) => {
   try {
-    // console.log('Starting download for:', url);
-
-    // Redirect to the video URL directly for download
-    res.redirect(url);
-  } catch (error) {
-    console.error('Error during video download:', error.message);
-    res.status(500).json({ error: 'Error during video download' });
-  }
-});
-
-app.get('/api/stream-merge', (req, res) => {
-  const { videoUrl, audioUrl } = req.query;
-
-  if (!videoUrl || !audioUrl) {
-    return res.status(400).json({ error: 'Video URL and Audio URL are required' });
-  }
-
-  res.setHeader('Content-Disposition', 'attachment; filename="merged_video.webm"');
-  res.setHeader('Content-Type', 'video/webm');
-  
-  // Use ffmpeg to stream and merge
-  const ffmpegProcess = spawn('ffmpeg', [
-    '-i', videoUrl,       // Input video URL
-    '-i', audioUrl,       // Input audio URL
-    '-c:v', 'copy',       // Copy video codec (no re-encoding)
-    '-c:a', 'libopus',    // Re-encode audio to Opus
-    '-f', 'webm',         // Output format (WebM is stream-friendly)
-    'pipe:1',             // Output to stdout
-  ]);  
-
-  ffmpegProcess.stdout.pipe(res); // Pipe merged output directly to response
-
-  ffmpegProcess.stderr.on('data', (data) => {
-    console.error('FFmpeg error:', data.toString());
-  });
-
-  ffmpegProcess.on('close', (code) => {
-    if (code !== 0) {
-      console.error('FFmpeg process failed with code:', code);
-      res.status(500).json({ error: 'Failed to merge video and audio' });
+    const { url, title } = req.query;
+    if (!url || !title) {
+      return res.status(400).json({ error: 'Missing required parameters' });
     }
+
+    const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50);
+    const filename = `${sanitizedTitle}_HDTube.mp4`;
+    const tempFilePath = path.join(__dirname, filename);
+
+    // Check if the file exists
+    if (!fs.existsSync(tempFilePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Set appropriate headers
+    res.setHeader('Content-Type', 'video/mp4');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    // Stream the file to the response
+    const fileStream = fs.createReadStream(tempFilePath);
+    fileStream.pipe(res);
+
+    // Clean up the file after sending
+    fileStream.on('end', () => {
+      fs.unlink(tempFilePath, (err) => {
+        if (err) console.error('Error deleting temporary file:', err);
+      });
+    });
+
+  } catch (error) {
+    console.error('Error in download endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.post('/api/stream-merge', async (req, res) => {
+  try {
+    const { url, title, videoItag, audioItag } = req.body;
+    if (!url || !title || !videoItag || !audioItag) {
+      return res.status(400).json({ error: 'Video URL, title, videoItag, and audioItag are required' });
+    }
+
+    const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
+    const originalUrl = videoUrls.get(videoId) || url;
+    const conversionId = Date.now().toString();
+    const tempVideoPath = path.join(tempDir, `${conversionId}.video.mp4`);
+    const tempAudioPath = path.join(tempDir, `${conversionId}.audio.m4a`);
+    const tempFilePath = path.join(tempDir, `${conversionId}.mp4`);
+    const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50);
+    const filename = `${sanitizedTitle}_HDTube.mp4`;
+
+    // Initialize progress
+    conversionProgress.set(conversionId, {
+      progress: 0,
+      status: 'starting',
+      filename: filename,
+      filePath: tempFilePath
+    });
+
+    // Return the conversion ID immediately
+    res.json({ conversionId: conversionId });
+
+    // Download video stream
+    let lastVideoProgress = 0;
+    const videoProc = spawn('yt-dlp', [
+      '-f', videoItag,
+      '-o', tempVideoPath,
+      '--newline',
+      '--progress',
+      '--no-simulate',
+      '--no-warnings',
+      originalUrl
+    ]);
+
+    console.log('Starting video download with command:', videoProc.spawnargs.join(' '));
+
+    videoProc.stderr.on('data', (data) => {
+      const output = data.toString();
+      console.log('Video download raw output:', output);
+
+      // Try different progress patterns
+      const patterns = [
+        /\[download\]\s+(\d+\.?\d*)%/,
+        /(\d+\.?\d*)%/,
+        /Downloading.*?(\d+\.?\d*)%/
+      ];
+
+      for (const pattern of patterns) {
+        const match = output.match(pattern);
+        if (match) {
+          const progress = Math.round(parseFloat(match[1]));
+          console.log('Found progress match:', progress, 'using pattern:', pattern);
+          if (progress > lastVideoProgress) {
+            lastVideoProgress = progress;
+            const videoProgress = Math.min(progress, 45); // up to 45% for video
+            console.log('Setting video progress:', videoProgress);
+            conversionProgress.set(conversionId, {
+              progress: videoProgress,
+              status: 'downloading video',
+              filename: filename,
+              filePath: tempFilePath
+            });
+            break;
+          }
+        }
+      }
+    });
+
+    videoProc.on('close', (code) => {
+      console.log('Video download completed with code:', code);
+      if (code !== 0) {
+        console.error('Failed to download video stream');
+        conversionProgress.set(conversionId, {
+          progress: 0,
+          status: 'error',
+          filename: filename,
+          filePath: tempFilePath
+        });
+        return;
+      }
+
+      // Download audio stream
+      let lastAudioProgress = 0;
+      const audioProc = spawn('yt-dlp', [
+        '-f', audioItag,
+        '-o', tempAudioPath,
+        '--newline',
+        '--progress',
+        '--no-simulate',
+        '--no-warnings',
+        originalUrl
+      ]);
+
+      console.log('Starting audio download with command:', audioProc.spawnargs.join(' '));
+
+      audioProc.stderr.on('data', (data) => {
+        const output = data.toString();
+        console.log('Audio download raw output:', output);
+
+        // Try different progress patterns
+        const patterns = [
+          /\[download\]\s+(\d+\.?\d*)%/,
+          /(\d+\.?\d*)%/,
+          /Downloading.*?(\d+\.?\d*)%/
+        ];
+
+        for (const pattern of patterns) {
+          const match = output.match(pattern);
+          if (match) {
+            const progress = Math.round(parseFloat(match[1]));
+            console.log('Found progress match:', progress, 'using pattern:', pattern);
+            if (progress > lastAudioProgress) {
+              lastAudioProgress = progress;
+              // Progress: video (45%) + audio (45%)
+              const totalProgress = Math.min(45, lastVideoProgress) + Math.round(progress * 0.45);
+              console.log('Setting audio progress:', totalProgress);
+              conversionProgress.set(conversionId, {
+                progress: Math.min(totalProgress, 90),
+                status: 'downloading audio',
+                filename: filename,
+                filePath: tempFilePath
+              });
+              break;
+            }
+          }
+        }
+      });
+
+      audioProc.on('close', (code2) => {
+        console.log('Audio download completed with code:', code2);
+        if (code2 !== 0) {
+          console.error('Failed to download audio stream');
+          conversionProgress.set(conversionId, {
+            progress: 0,
+            status: 'error',
+            filename: filename,
+            filePath: tempFilePath
+          });
+          return;
+        }
+
+        // Merging with ffmpeg
+        conversionProgress.set(conversionId, {
+          progress: 95,
+          status: 'merging',
+          filename: filename,
+          filePath: tempFilePath
+        });
+
+        const ffmpegProc = spawn('ffmpeg', [
+          '-i', tempVideoPath,
+          '-i', tempAudioPath,
+          '-c:v', 'copy',
+          '-c:a', 'aac',
+          '-b:a', '192k',
+          '-ar', '44100',
+          '-ac', '2',
+          '-movflags', '+faststart',
+          '-y', tempFilePath
+        ]);
+
+        console.log('Starting FFmpeg merge with command:', ffmpegProc.spawnargs.join(' '));
+
+        ffmpegProc.stderr.on('data', (data) => {
+          const output = data.toString();
+          console.log('FFmpeg output:', output);
+        });
+
+        ffmpegProc.on('close', (code3) => {
+          console.log('FFmpeg merge completed with code:', code3);
+          if (code3 !== 0) {
+            console.error('Failed to merge video and audio');
+            conversionProgress.set(conversionId, {
+              progress: 0,
+              status: 'error',
+              filename: filename,
+              filePath: tempFilePath
+            });
+            return;
+          }
+
+          // Clean up temp files
+          fs.unlink(tempVideoPath, () => {});
+          fs.unlink(tempAudioPath, () => {});
+
+          // Set final progress
+          conversionProgress.set(conversionId, {
+            progress: 100,
+            status: 'completed',
+            filename: filename,
+            filePath: tempFilePath
+          });
+        });
+      });
+    });
+  } catch (error) {
+    console.error('Error in stream-merge:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update the /api/download-merged endpoint
+app.get('/api/download-merged', (req, res) => {
+  const { conversionId } = req.query;
+  
+  if (!conversionId) {
+    return res.status(400).json({ error: 'Conversion ID is required' });
+  }
+
+  const progress = conversionProgress.get(conversionId);
+  if (!progress) {
+    console.error('Conversion not found:', conversionId);
+    return res.status(404).json({ error: 'Conversion not found' });
+  }
+
+  if (progress.status !== 'completed') {
+    console.error('Conversion not completed:', progress.status);
+    return res.status(400).json({ error: 'Conversion not completed yet' });
+  }
+
+  const tempFilePath = progress.filePath;
+  if (!tempFilePath) {
+    console.error('No file path found for conversion:', conversionId);
+    return res.status(404).json({ error: 'File path not found' });
+  }
+
+  // Check if the file exists
+  if (!fs.existsSync(tempFilePath)) {
+    console.error('File not found:', tempFilePath);
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  // Set headers for MP4 download
+  res.setHeader('Content-Disposition', `attachment; filename="${progress.filename}"`);
+  res.setHeader('Content-Type', 'video/mp4');
+
+  // Stream the file to the response
+  const fileStream = fs.createReadStream(tempFilePath);
+  fileStream.pipe(res);
+
+  // Clean up the temporary file and progress entry after streaming
+  fileStream.on('end', () => {
+    fs.unlink(tempFilePath, (err) => {
+      if (err) console.error('Error deleting temporary file:', err);
+    });
+    // Remove the progress entry only after the file has been downloaded
+    conversionProgress.delete(conversionId);
+  });
+
+  // Handle errors
+  fileStream.on('error', (err) => {
+    console.error('Error streaming file:', err);
+    res.status(500).json({ error: 'Error streaming file' });
   });
 });
 
+app.post('/api/convert-to-mp4', async (req, res) => {
+  try {
+    const { url, title, itag } = req.body;
+    console.log('convert-to-mp4 received:', { url, title, itag });
+    if (!url || !title || !itag) {
+      return res.status(400).json({ error: 'Video URL, title, and itag are required' });
+    }
+
+    // Get the original YouTube URL
+    const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
+    const originalUrl = videoUrls.get(videoId) || url;
+
+    // Get video info using yt-dlp
+    const ytdlpProcess = spawn('yt-dlp', [
+      '--dump-json',
+      '--no-playlist',
+      '--no-warnings',
+      originalUrl
+    ]);
+    let output = '';
+    ytdlpProcess.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+    await new Promise((resolve, reject) => {
+      ytdlpProcess.on('close', (code) => {
+        if (code !== 0) reject(new Error('yt-dlp failed'));
+        else resolve();
+      });
+    });
+    const videoInfo = JSON.parse(output);
+    const availableItags = videoInfo.formats.map(f => f.format_id);
+    console.log('Available format_ids:', availableItags);
+    const selectedFormat = videoInfo.formats.find(f => f.format_id == itag);
+    if (!selectedFormat) {
+      console.error('Selected itag not found:', itag, 'Available:', availableItags);
+      return res.status(400).json({ error: 'Selected video format not found' });
+    }
+
+    const conversionId = Date.now().toString();
+    const tempFilePath = path.join(tempDir, `${conversionId}.mp4`);
+    const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50);
+    const filename = `${sanitizedTitle}_HDTube.mp4`;
+
+    // Initialize progress
+    conversionProgress.set(conversionId, {
+      progress: 0,
+      status: 'starting',
+      filename: filename,
+      filePath: tempFilePath
+    });
+
+    // Return the conversion ID immediately
+    res.json({ conversionId: conversionId });
+
+    // Download using yt-dlp with specific format
+    const downloadProcess = spawn('yt-dlp', [
+      '-f', itag,
+      '-o', tempFilePath,
+      originalUrl
+    ]);
+
+    downloadProcess.stderr.on('data', (data) => {
+      const output = data.toString();
+      console.log('Download progress:', output);
+      
+      // Extract progress from output
+      const progressMatch = output.match(/\[download\]\s+(\d+\.\d+)%/);
+      if (progressMatch) {
+        const progress = Math.round(parseFloat(progressMatch[1]));
+        conversionProgress.set(conversionId, {
+          progress: progress,
+          status: 'converting',
+          filename: filename,
+          filePath: tempFilePath
+        });
+      }
+    });
+
+    downloadProcess.on('close', (code) => {
+      if (code !== 0) {
+        console.error('Download process failed with code:', code);
+        conversionProgress.set(conversionId, {
+          progress: 0,
+          status: 'error',
+          filename: filename,
+          filePath: tempFilePath
+        });
+        return;
+      }
+
+      conversionProgress.set(conversionId, {
+        progress: 100,
+        status: 'completed',
+        filename: filename,
+        filePath: tempFilePath
+      });
+    });
+  } catch (error) {
+    console.error('Error in convert-to-mp4:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update the /api/conversion-progress endpoint
+app.get('/api/conversion-progress', (req, res) => {
+  const { conversionId } = req.query;
+  
+  if (!conversionId) {
+    return res.status(400).json({ error: 'Conversion ID is required' });
+  }
+
+  const progress = conversionProgress.get(conversionId);
+  if (!progress) {
+    return res.status(404).json({ error: 'Conversion not found' });
+  }
+
+  res.json(progress);
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

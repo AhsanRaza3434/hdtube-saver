@@ -1,4 +1,6 @@
 <div class="video-details-container" *ngIf="details">
+  <app-conversion-progress></app-conversion-progress>
+  
   <div class="video-thumbnail-title">
     <img [src]="details.thumbnail" alt="Video Thumbnail" class="video-thumbnail" />
     <h2 class="video-title">{{ details.title }}</h2>
@@ -40,9 +42,8 @@
           <td>{{ format.size }}</td>
           <td>
             <button
-            *ngIf="format.pairedAudio"
-            (click)="mergeDownload(format.url, format.pairedAudio)"
             class="btn-download"
+              (click)="convertToMp4(format)"
           >
             Download
           </button>
