@@ -28,11 +28,177 @@ if (!fs.existsSync(cookiesDir)) {
 // Add this near the top of the file after the imports
 const videoUrls = new Map();
 
-// Middleware
-app.use(bodyParser.json());
-app.use(cors());
+// Add this near the top of the file after the imports
+const COOKIE_SETS = [
+  {
+    name: 'set1',
+    cookies: `# Netscape HTTP Cookie File
+# https://curl.haxx.se/rfc/cookie_spec.html
+# This is a generated file!  Do not edit.
 
-// Function to try different browsers for cookies
+.youtube.com	TRUE	/	TRUE	1735689600	CONSENT	YES+cb
+.youtube.com	TRUE	/	TRUE	1735689600	VISITOR_INFO1_LIVE	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	YSC	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	GPS	1
+.youtube.com	TRUE	/	TRUE	1735689600	PREF	f4=4000000&tz=UTC
+.youtube.com	TRUE	/	TRUE	1735689600	LOGIN_INFO	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	SID	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	HSID	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	SSID	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	APISID	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	SAPISID	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PAPISID	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PAPISID	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSID	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSID	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSIDTS	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSIDTS	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSIDCC	random_string
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSIDCC	random_string`
+  },
+  {
+    name: 'set2',
+    cookies: `# Netscape HTTP Cookie File
+# https://curl.haxx.se/rfc/cookie_spec.html
+# This is a generated file!  Do not edit.
+
+.youtube.com	TRUE	/	TRUE	1735689600	CONSENT	YES+cb
+.youtube.com	TRUE	/	TRUE	1735689600	VISITOR_INFO1_LIVE	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	YSC	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	GPS	1
+.youtube.com	TRUE	/	TRUE	1735689600	PREF	f4=4000000&tz=UTC
+.youtube.com	TRUE	/	TRUE	1735689600	LOGIN_INFO	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	SID	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	HSID	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	SSID	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	APISID	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	SAPISID	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PAPISID	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PAPISID	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSID	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSID	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSIDTS	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSIDTS	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSIDCC	random_string2
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSIDCC	random_string2`
+  },
+  {
+    name: 'set3',
+    cookies: `# Netscape HTTP Cookie File
+# https://curl.haxx.se/rfc/cookie_spec.html
+# This is a generated file!  Do not edit.
+
+.youtube.com	TRUE	/	TRUE	1735689600	CONSENT	YES+cb
+.youtube.com	TRUE	/	TRUE	1735689600	VISITOR_INFO1_LIVE	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	YSC	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	GPS	1
+.youtube.com	TRUE	/	TRUE	1735689600	PREF	f4=4000000&tz=UTC
+.youtube.com	TRUE	/	TRUE	1735689600	LOGIN_INFO	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	SID	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	HSID	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	SSID	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	APISID	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	SAPISID	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PAPISID	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PAPISID	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSID	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSID	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSIDTS	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSIDTS	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-1PSIDCC	random_string3
+.youtube.com	TRUE	/	TRUE	1735689600	__Secure-3PSIDCC	random_string3`
+  }
+];
+
+// Add cookie rotation tracking
+let currentCookieSetIndex = 0;
+const cookieStats = new Map(); // Track detailed statistics for each cookie set
+
+// Function to initialize cookie stats
+function initCookieStats(cookiePath) {
+  if (!cookieStats.has(cookiePath)) {
+    cookieStats.set(cookiePath, {
+      success: 0,
+      failure: 0,
+      lastSuccess: null,
+      lastFailure: null,
+      consecutiveFailures: 0,
+      totalRequests: 0,
+      errors: new Map(), // Track specific error types
+      lastUsed: Date.now()
+    });
+  }
+}
+
+// Function to update cookie stats with more details
+function updateCookieStats(cookiePath, success, error = null) {
+  initCookieStats(cookiePath);
+  const stats = cookieStats.get(cookiePath);
+  
+  stats.totalRequests++;
+  stats.lastUsed = Date.now();
+  
+  if (success) {
+    stats.success++;
+    stats.lastSuccess = Date.now();
+    stats.consecutiveFailures = 0;
+  } else {
+    stats.failure++;
+    stats.lastFailure = Date.now();
+    stats.consecutiveFailures++;
+    
+    if (error) {
+      const errorType = error.message || 'unknown';
+      stats.errors.set(errorType, (stats.errors.get(errorType) || 0) + 1);
+    }
+  }
+  
+  cookieStats.set(cookiePath, stats);
+}
+
+// Function to test cookies
+async function testCookies(cookiePath, url) {
+  try {
+    const result = await new Promise((resolve, reject) => {
+      const proc = spawn('yt-dlp', [
+        '--dump-json',
+        '--no-playlist',
+        '--no-warnings',
+        '--cookies', cookiePath,
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        url
+      ]);
+      let output = '';
+      let errorOutput = '';
+      proc.stdout.on('data', (data) => output += data.toString());
+      proc.stderr.on('data', (data) => errorOutput += data.toString());
+      proc.on('close', (code) => {
+        if (code === 0) resolve(true);
+        else reject(new Error(errorOutput || 'Cookie test failed'));
+      });
+    });
+    return result;
+  } catch (e) {
+    console.log('Cookie test failed:', e.message);
+    return false;
+  }
+}
+
+// Function to rotate cookies
+function rotateCookies() {
+  currentCookieSetIndex = (currentCookieSetIndex + 1) % COOKIE_SETS.length;
+  const cookieSet = COOKIE_SETS[currentCookieSetIndex];
+  const cookiePath = path.join(cookiesDir, `default_${cookieSet.name}.txt`);
+  
+  // Ensure the cookie file exists
+  if (!fs.existsSync(cookiePath)) {
+    fs.writeFileSync(cookiePath, cookieSet.cookies);
+  }
+  
+  return cookiePath;
+}
+
+// Update the tryGetCookies function
 async function tryGetCookies(url) {
   const browsers = ['chrome', 'firefox', 'edge', 'brave', 'opera'];
   const userAgents = {
@@ -63,9 +229,11 @@ async function tryGetCookies(url) {
           else reject(new Error('Manual cookies failed'));
         });
       });
+      updateCookieStats(manualCookiesPath, true);
       return result;
     } catch (e) {
       console.log('Manual cookies failed, trying browsers...');
+      updateCookieStats(manualCookiesPath, false);
     }
   }
 
@@ -94,14 +262,40 @@ async function tryGetCookies(url) {
     }
   }
 
-  // If all cookie methods fail, return a default configuration
-  console.log('All cookie methods failed, using default configuration');
+  // Try default cookie sets
+  console.log('All browser cookies failed, trying default cookie sets...');
+  
+  // Try each cookie set in rotation
+  for (let i = 0; i < COOKIE_SETS.length; i++) {
+    const cookiePath = rotateCookies();
+    try {
+      const success = await testCookies(cookiePath, url);
+      if (success) {
+        updateCookieStats(cookiePath, true);
+        return {
+          browser: 'default',
+          userAgent: userAgents.chrome,
+          cookiePath
+        };
+      }
+      updateCookieStats(cookiePath, false);
+    } catch (e) {
+      console.log(`Default cookie set ${i + 1} failed, trying next...`);
+      updateCookieStats(cookiePath, false);
+    }
+  }
+
+  console.log('All cookie methods failed, using no cookies...');
   return {
     browser: 'none',
     userAgent: userAgents.chrome,
     useCookies: false
   };
 }
+
+// Middleware
+app.use(bodyParser.json());
+app.use(cors());
 
 // Helper function to get yt-dlp arguments with optional cookie support
 function getYtdlpArgs(url, options = {}) {
@@ -1070,6 +1264,128 @@ setInterval(() => {
     });
   });
 }, 15 * 60 * 1000); // Every 15 minutes
+
+// Add endpoint to get cookie stats
+app.get('/api/cookie-stats', (req, res) => {
+  const stats = {};
+  for (const [path, data] of cookieStats.entries()) {
+    const total = data.success + data.failure;
+    stats[path] = {
+      success: data.success,
+      failure: data.failure,
+      successRate: total > 0 ? (data.success / total * 100).toFixed(2) + '%' : '0%'
+    };
+  }
+  res.json(stats);
+});
+
+// Update the update-default-cookies endpoint
+app.post('/api/update-default-cookies', (req, res) => {
+  try {
+    const { cookies, setName } = req.body;
+    if (!cookies) {
+      return res.status(400).json({ error: 'Cookies are required' });
+    }
+
+    const setIndex = COOKIE_SETS.findIndex(set => set.name === setName);
+    if (setIndex === -1) {
+      return res.status(400).json({ error: 'Invalid cookie set name' });
+    }
+
+    const cookiePath = path.join(cookiesDir, `default_${setName}.txt`);
+    fs.writeFileSync(cookiePath, cookies);
+    
+    // Reset stats for this cookie set
+    cookieStats.delete(cookiePath);
+    
+    res.json({ 
+      message: 'Default cookies updated successfully',
+      set: setName
+    });
+  } catch (error) {
+    console.error('Error updating default cookies:', error);
+    res.status(500).json({ error: 'Failed to update default cookies' });
+  }
+});
+
+// Add endpoint to force cookie cleanup
+app.post('/api/cleanup-cookies', (req, res) => {
+  try {
+    cleanupCookieSets();
+    res.json({ message: 'Cookie cleanup completed' });
+  } catch (error) {
+    console.error('Error during cookie cleanup:', error);
+    res.status(500).json({ error: 'Failed to clean up cookies' });
+  }
+});
+
+// Function to clean up old cookie sets
+function cleanupCookieSets() {
+  const now = Date.now();
+  const MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
+  const MAX_FAILURES = 10; // Maximum consecutive failures before cleanup
+  
+  for (const [path, stats] of cookieStats.entries()) {
+    const age = now - stats.lastUsed;
+    if (age > MAX_AGE || stats.consecutiveFailures > MAX_FAILURES) {
+      try {
+        if (fs.existsSync(path)) {
+          fs.unlinkSync(path);
+          console.log(`Cleaned up old cookie set: ${path}`);
+        }
+        cookieStats.delete(path);
+      } catch (error) {
+        console.error(`Error cleaning up cookie set ${path}:`, error);
+      }
+    }
+  }
+}
+
+// Update the cookie stats endpoint
+app.get('/api/cookie-stats', (req, res) => {
+  const stats = {};
+  for (const [path, data] of cookieStats.entries()) {
+    const total = data.success + data.failure;
+    const successRate = total > 0 ? (data.success / total * 100).toFixed(2) + '%' : '0%';
+    
+    // Calculate time since last success/failure
+    const lastSuccess = data.lastSuccess ? new Date(data.lastSuccess).toISOString() : 'Never';
+    const lastFailure = data.lastFailure ? new Date(data.lastFailure).toISOString() : 'Never';
+    
+    // Get most common errors
+    const commonErrors = Array.from(data.errors.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([error, count]) => ({ error, count }));
+    
+    stats[path] = {
+      success: data.success,
+      failure: data.failure,
+      successRate,
+      totalRequests: data.totalRequests,
+      consecutiveFailures: data.consecutiveFailures,
+      lastSuccess,
+      lastFailure,
+      lastUsed: new Date(data.lastUsed).toISOString(),
+      commonErrors
+    };
+  }
+  res.json(stats);
+});
+
+// Add endpoint to force cookie cleanup
+app.post('/api/cleanup-cookies', (req, res) => {
+  try {
+    cleanupCookieSets();
+    res.json({ message: 'Cookie cleanup completed' });
+  } catch (error) {
+    console.error('Error during cookie cleanup:', error);
+    res.status(500).json({ error: 'Failed to clean up cookies' });
+  }
+});
+
+// Add periodic cookie cleanup
+setInterval(cleanupCookieSets, 60 * 60 * 1000); // Run cleanup every hour
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
