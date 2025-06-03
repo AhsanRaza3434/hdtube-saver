@@ -32,7 +32,7 @@ app.use(cors());
 app.get('/api/video-details', async (req, res) => {
   try {
     const url = req.query.url;
-    if (!url) {
+  if (!url) {
       console.error('URL is missing from request');
       return res.status(400).json({ error: 'URL is required' });
     }
@@ -46,18 +46,13 @@ app.get('/api/video-details', async (req, res) => {
       console.log('Stored video ID:', videoId);
     } else {
       console.warn('Could not extract video ID from URL:', url);
-    }
+  }
 
-    // Use yt-dlp to get video info with additional options
+    // Use yt-dlp to get video info
     const ytdlpProcess = spawn('yt-dlp', [
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
-      '--no-check-certificate',
-      '--no-call-home',
-      '--no-cache-dir',
-      '--extractor-args', 'youtube:player_client=android',
-      '--user-agent', 'Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36',
       url
     ]);
 
@@ -75,7 +70,7 @@ app.get('/api/video-details', async (req, res) => {
 
     await new Promise((resolve, reject) => {
       ytdlpProcess.on('close', (code) => {
-        if (code !== 0) {
+      if (code !== 0) {
           console.error('yt-dlp process failed with code:', code);
           console.error('Error output:', errorOutput);
           reject(new Error(`yt-dlp process failed with code ${code}`));
@@ -283,7 +278,7 @@ app.post('/api/stream-merge', async (req, res) => {
     const { url, title, videoItag, audioItag } = req.body;
     if (!url || !title || !videoItag || !audioItag) {
       return res.status(400).json({ error: 'Video URL, title, videoItag, and audioItag are required' });
-    }
+  }
 
     const videoId = url.split('v=')[1]?.split('&')[0] || url.split('youtu.be/')[1]?.split('?')[0];
     const originalUrl = videoUrls.get(videoId) || url;
@@ -305,7 +300,7 @@ app.post('/api/stream-merge', async (req, res) => {
     // Return the conversion ID immediately
     res.json({ conversionId: conversionId });
 
-    // Download video stream with additional options
+    // Download video stream
     let lastVideoProgress = 0;
     const videoProc = spawn('yt-dlp', [
       '-f', videoItag,
@@ -314,11 +309,6 @@ app.post('/api/stream-merge', async (req, res) => {
       '--progress',
       '--no-simulate',
       '--no-warnings',
-      '--no-check-certificate',
-      '--no-call-home',
-      '--no-cache-dir',
-      '--extractor-args', 'youtube:player_client=android',
-      '--user-agent', 'Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36',
       originalUrl
     ]);
 
@@ -373,7 +363,7 @@ app.post('/api/stream-merge', async (req, res) => {
         return;
       }
 
-      // Download audio stream with additional options
+      // Download audio stream
       let lastAudioProgress = 0;
       const audioProc = spawn('yt-dlp', [
         '-f', audioItag,
@@ -382,11 +372,6 @@ app.post('/api/stream-merge', async (req, res) => {
         '--progress',
         '--no-simulate',
         '--no-warnings',
-        '--no-check-certificate',
-        '--no-call-home',
-        '--no-cache-dir',
-        '--extractor-args', 'youtube:player_client=android',
-        '--user-agent', 'Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36',
         originalUrl
       ]);
 
@@ -699,11 +684,6 @@ app.post('/api/audio-to-mp3', async (req, res) => {
           '--dump-json',
           '--no-playlist',
           '--no-warnings',
-          '--no-check-certificate',
-          '--no-call-home',
-          '--no-cache-dir',
-          '--extractor-args', 'youtube:player_client=android',
-          '--user-agent', 'Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36',
           originalUrl
         ]);
         let output = '';
@@ -746,8 +726,6 @@ app.post('/api/audio-to-mp3', async (req, res) => {
       '--no-check-certificate',
       '--no-call-home',
       '--no-cache-dir',
-      '--extractor-args', 'youtube:player_client=android',
-      '--user-agent', 'Mozilla/5.0 (Linux; Android 11; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.141 Mobile Safari/537.36',
       '-o', tempAudioPath,
       '--newline',
       '--progress',
