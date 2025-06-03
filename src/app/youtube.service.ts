@@ -7,8 +7,8 @@ import { map, switchMap, takeWhile } from 'rxjs/operators';
   providedIn: 'root',
 })
 export class YouTubeService {
-  public apiUrl = 'https://54.245.252.27:3000/api';
-  // public apiUrl = 'http://localhost:3000/api';
+  // public apiUrl = 'https://54.245.252.27:3000/api';
+  public apiUrl = 'http://localhost:3000/api';
 
   constructor(private http: HttpClient) {}
 
