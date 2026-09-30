@@ -10,7 +10,12 @@ const ytdl = require('ytdl-core');
 const https = require('https');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
+
+// Health check endpoint (no parameters required)
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 // Trust proxy (required for Render/Vercel behind load balancers)
 app.set('trust proxy', 1);
