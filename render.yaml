@@ -1,18 +1,13 @@
-# Render Blueprint for HDTube Saver API
-# https://render.com/docs/blueprint-spec
-
 services:
   - type: web
     name: hdtube-saver-api
     env: node
     plan: free
-    buildCommand: npm install && NODE_OPTIONS=--openssl-legacy-provider npm run build
+    buildCommand: npm install --include=dev && NODE_OPTIONS=--openssl-legacy-provider npm run build
     startCommand: node server.js
     healthCheckPath: /api/video-details
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 3000
-      - key: NODE_OPTIONS
-        value: --openssl-legacy-provider
+        value: 10000
