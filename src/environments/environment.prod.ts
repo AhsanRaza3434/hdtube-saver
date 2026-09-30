@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://hdtube-saver.onrender.com/api',
-  siteUrl: 'https://hdtube-saver.com',
+  apiUrl: 'https://hdtube-saver-api.onrender.com/api',
+  siteUrl: 'https://chimerical-arithmetic-0a693c.netlify.app',
 };
