@@ -1,17 +1,19 @@
 <div class="video-details-container" *ngIf="details">
   <app-conversion-progress></app-conversion-progress>
-  
+
   <div class="video-thumbnail-title">
-    <img [src]="details.thumbnail" alt="Video Thumbnail" class="video-thumbnail" />
+    <img [src]="details.thumbnail" [alt]="details.title + ' - YouTube Video Thumbnail'" class="video-thumbnail" loading="lazy" />
     <h2 class="video-title">{{ details.title }}</h2>
   </div>
 
   <!-- Tabs for switching between Video and Audio -->
-  <div class="tab-container">
+  <div class="tab-container" role="tablist" aria-label="Format selection">
     <button
       [class.active]="selectedTab === 'video'"
       (click)="selectTab('video')"
       class="tab-button"
+      role="tab"
+      [attr.aria-selected]="selectedTab === 'video'"
     >
       Video
     </button>
@@ -19,20 +21,22 @@
       [class.active]="selectedTab === 'audio'"
       (click)="selectTab('audio')"
       class="tab-button"
+      role="tab"
+      [attr.aria-selected]="selectedTab === 'audio'"
     >
       Audio
     </button>
   </div>
 
   <!-- Video Table -->
-  <div *ngIf="selectedTab === 'video'">
+  <div *ngIf="selectedTab === 'video'" role="tabpanel" aria-label="Video formats">
     <table class="details-table">
       <thead>
         <tr>
-          <th>Resolution</th>
-          <th>Format</th>
-          <th>Size</th>
-          <th>Action</th>
+          <th scope="col">Resolution</th>
+          <th scope="col">Format</th>
+          <th scope="col">Size</th>
+          <th scope="col">Action</th>
         </tr>
       </thead>
       <tbody>
@@ -42,11 +46,12 @@
           <td>{{ format.size }}</td>
           <td>
             <button
-            class="btn-download"
+              class="btn-download"
               (click)="convertToMp4(format)"
-          >
-            Download
-          </button>
+              [attr.aria-label]="'Download ' + format.resolution + ' ' + format.format"
+            >
+              Download
+            </button>
           </td>
         </tr>
       </tbody>
@@ -54,14 +59,14 @@
   </div>
 
   <!-- Audio Table -->
-  <div *ngIf="selectedTab === 'audio'">
+  <div *ngIf="selectedTab === 'audio'" role="tabpanel" aria-label="Audio formats">
     <table class="details-table">
       <thead>
         <tr>
-          <th>Quality</th>
-          <th>Format</th>
-          <th>Size</th>
-          <th>Action</th>
+          <th scope="col">Quality</th>
+          <th scope="col">Format</th>
+          <th scope="col">Size</th>
+          <th scope="col">Action</th>
         </tr>
       </thead>
       <tbody>
@@ -70,7 +75,11 @@
           <td>{{ format.format }}</td>
           <td>{{ format.size }}</td>
           <td>
-            <button (click)="downloadAudio(format)" class="btn-download">
+            <button
+              (click)="downloadAudio(format)"
+              class="btn-download"
+              [attr.aria-label]="'Download audio ' + format.quality"
+            >
               Download
             </button>
           </td>

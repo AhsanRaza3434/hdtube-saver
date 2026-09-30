@@ -1,6 +1,8 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -8,7 +10,57 @@ const ytdl = require('ytdl-core');
 const https = require('https');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+
+// Trust proxy (required for Render/Vercel behind load balancers)
+app.set('trust proxy', 1);
+
+// Security & compression middleware
+app.use(compression());
+
+// HTTPS enforcement middleware
+app.use((req, res, next) => {
+  if (req.headers['x-forwarded-proto'] !== 'https' && process.env.NODE_ENV === 'production') {
+    return res.redirect(301, `https://${req.headers.host}${req.url}`);
+  }
+  next();
+});
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), payment=()'
+  );
+  next();
+});
+
+// Rate limiting
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+const conversionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20, // limit each IP to 20 conversion requests per hour
+  message: { error: 'Conversion limit reached, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Apply rate limiting to API routes
+app.use('/api/', apiLimiter);
+app.use('/api/stream-merge', conversionLimiter);
+app.use('/api/convert-to-mp4', conversionLimiter);
+app.use('/api/audio-to-mp3', conversionLimiter);
 
 // Store conversion progress
 const conversionProgress = new Map();
@@ -789,23 +841,30 @@ app.post('/api/audio-to-mp3', async (req, res) => {
         '-ar', '44100',
         '-ac', '2',
         '-b:a', abr || '128k',
+        '-id3v2_version', '3',
+        '-metadata', `title=${title}`,
+        '-metadata', 'encoder=HDTube Saver',
         '-y',
         tempMp3Path
       ]);
 
+      let ffmpegError = '';
       ffmpegProc.stderr.on('data', (data) => {
-        // Optionally parse progress here
+        const output = data.toString();
+        ffmpegError += output;
+        console.log('FFmpeg (audio-to-mp3) output:', output);
         conversionProgress.set(conversionId, {
           progress: 90,
           status: 'converting to mp3',
           filename: filename,
           filePath: tempMp3Path
-  });
-});
+        });
+      });
 
       ffmpegProc.on('close', (code2) => {
         if (fs.existsSync(tempAudioPath)) fs.unlink(tempAudioPath, () => {});
         if (code2 !== 0) {
+          console.error('[audio-to-mp3] FFmpeg conversion failed:', ffmpegError);
           // Clean up mp3 file on error
           if (fs.existsSync(tempMp3Path)) fs.unlinkSync(tempMp3Path);
           conversionProgress.set(conversionId, {
@@ -864,7 +923,9 @@ app.get('/api/download-audio-mp3', (req, res) => {
   const stats = fs.statSync(tempFilePath);
   console.log(`[download-audio-mp3] conversionId=${conversionId}, filePath=${tempFilePath}, size=${stats.size}`);
 
-  res.setHeader('Content-Disposition', `attachment; filename="${progress.filename}"`);
+  // Use the actual video title as filename, fallback to conversionId
+  const downloadFilename = progress.filename || `${conversionId}_HDTube.mp3`;
+  res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
   res.setHeader('Content-Type', 'audio/mpeg');
 
   const fileStream = fs.createReadStream(tempFilePath);
@@ -905,6 +966,17 @@ setInterval(() => {
     });
   });
 }, 15 * 60 * 1000); // Every 15 minutes
+
+// 404 handler for API routes
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: 'API endpoint not found' });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);

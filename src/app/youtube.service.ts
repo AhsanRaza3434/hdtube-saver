@@ -2,13 +2,14 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, interval } from 'rxjs';
 import { map, switchMap, takeWhile } from 'rxjs/operators';
+import { environment } from '../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class YouTubeService {
-  // public apiUrl = 'https://54.245.252.27:3000/api';
-  public apiUrl = 'http://localhost:3000/api';
+  public apiUrl = environment.apiUrl;
+  public currentFilename: string = '';
 
   constructor(private http: HttpClient) {}
 
@@ -63,6 +64,37 @@ export class YouTubeService {
   // Add: Download the converted MP3 file
   downloadAudioMp3(conversionId: string): void {
     const downloadUrl = `${this.apiUrl}/download-audio-mp3?conversionId=${encodeURIComponent(conversionId)}`;
-    window.location.href = downloadUrl;
+    // Fetch as blob first so we can detect error responses (e.g. 404 JSON) instead of saving them as a file
+    fetch(downloadUrl)
+      .then(response => {
+        if (!response.ok) {
+          return response.json().then(err => {
+            throw new Error(err.error || `Download failed (${response.status})`);
+          });
+        }
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          return response.json().then(err => {
+            throw new Error(err.error || 'Download failed');
+          });
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        if (blob instanceof Error) throw blob;
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        // Use the video title from the conversion progress, fallback to conversionId
+        link.download = this.currentFilename || `${conversionId}_HDTube.mp3`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      })
+      .catch(error => {
+        console.error('MP3 download error:', error);
+        alert(error.message || 'Download failed. Please try again.');
+      });
   }
 }

@@ -461,6 +461,9 @@ export class ConversionProgressComponent implements OnInit, OnDestroy {
       this.handleError('No conversion ID available. Please try again.');
       return;
     }
+    // Store the filename from the conversion progress for the download
+    const sanitizedTitle = this.currentTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50);
+    this.youtubeService.currentFilename = `${sanitizedTitle}_HDTube.mp3`;
     this.youtubeService.downloadAudioMp3(this.currentConversionId);
     this.status = 'Download complete!';
     setTimeout(() => {

@@ -1,20 +1,42 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
-import { VideoInputComponent } from './video-input/video-input.component'; // Import your component
-import { FaqComponent } from './components/faq.component';
-import { PrivacyPolicyComponent } from './components/privacy-policy.component';
-import { TermsOfServiceComponent } from './components/terms-of-service.component';
+import { VideoInputComponent } from './video-input/video-input.component';
 
 const routes: Routes = [
-  { path: '', component: VideoInputComponent }, // Default route
-  { path: 'faq', component: FaqComponent },
-  { path: 'privacy', component: PrivacyPolicyComponent },
-  { path: 'terms', component: TermsOfServiceComponent },
-  { path: '**', redirectTo: '' } // Wildcard route to handle undefined routes
+  { path: '', component: VideoInputComponent },
+  {
+    path: 'faq',
+    loadChildren: () =>
+      import('./components/faq.module').then((m) => m.FaqModule),
+  },
+  {
+    path: 'privacy-policy',
+    loadChildren: () =>
+      import('./components/privacy-policy.module').then(
+        (m) => m.PrivacyPolicyModule
+      ),
+  },
+  {
+    path: 'terms-of-service',
+    loadChildren: () =>
+      import('./components/terms-of-service.module').then(
+        (m) => m.TermsOfServiceModule
+      ),
+  },
+  // Redirects for old URLs
+  { path: 'privacy', redirectTo: '/privacy-policy', pathMatch: 'full' },
+  { path: 'terms', redirectTo: '/terms-of-service', pathMatch: 'full' },
+  { path: '**', redirectTo: '' },
 ];
 
 @NgModule({
-  imports: [RouterModule.forRoot(routes)],
-  exports: [RouterModule]
+  imports: [
+    RouterModule.forRoot(routes, {
+      scrollPositionRestoration: 'enabled',
+      anchorScrolling: 'enabled',
+      preloadingStrategy: undefined, // Could use PreloadAllModules for small apps
+    }),
+  ],
+  exports: [RouterModule],
 })
 export class AppRoutingModule {}
