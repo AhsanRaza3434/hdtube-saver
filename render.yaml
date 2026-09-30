@@ -3,11 +3,11 @@ services:
     name: hdtube-saver-api
     env: node
     plan: free
-    buildCommand: npm install --include=dev && NODE_OPTIONS=--openssl-legacy-provider npm run build
+    buildCommand: npm install
     startCommand: node server.js
     healthCheckPath: /api/video-details
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000
+        value: 3000
