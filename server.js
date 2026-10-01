@@ -44,6 +44,14 @@ app.use((req, res, next) => {
   next();
 });
 
+// Explicit CORS configuration for cross-origin requests
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: false,
+}));
+
 // Rate limiting
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -72,6 +80,18 @@ const conversionProgress = new Map();
 
 // Add this near the top of the file after the imports
 const tempDir = path.join(__dirname, 'temp');
+
+// Check if yt-dlp is available
+const { execSync } = require('child_process');
+let ytdlpAvailable = false;
+try {
+  execSync('yt-dlp --version', { stdio: 'ignore' });
+  ytdlpAvailable = true;
+  console.log('yt-dlp is available');
+} catch (e) {
+  console.warn('yt-dlp is NOT available - video downloads will not work');
+  console.warn('Install it with: pip install yt-dlp');
+}
 
 // Ensure temp directory exists
 if (!fs.existsSync(tempDir)) {
@@ -104,6 +124,11 @@ app.get('/api/video-details', async (req, res) => {
     } else {
       console.warn('Could not extract video ID from URL:', url);
   }
+
+    // Check if yt-dlp is available
+    if (!ytdlpAvailable) {
+      return res.status(500).json({ error: 'yt-dlp is not installed on this server' });
+    }
 
     // Use yt-dlp to get video info
     const ytdlpProcess = spawn('yt-dlp', [
