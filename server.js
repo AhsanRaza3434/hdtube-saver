@@ -1,10 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
-const rateLimit = require('express-rate-limit');
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
 const axios = require('axios');
 
 const app = express();
@@ -14,6 +12,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.set('trust proxy', 1);
 app.use(compression());
 app.use(cors({ origin: '*' }));
+app.use(express.json()); // Need to parse JSON bodies for POST requests!
 
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || 'REDACTED_RAPIDAPI_KEY';
 const RAPIDAPI_HOST = 'youtube-video-fast-downloader-24-7.p.rapidapi.com';
@@ -26,6 +25,11 @@ function extractVideoId(url) {
   let videoId = url.split('v=')[1]?.split('&')[0];
   if (!videoId) videoId = url.split('youtu.be/')[1]?.split('?')[0];
   return videoId;
+}
+
+function getSizeMB(size) {
+  if (!size) return 'UNKNOWN';
+  return (size / (1024 * 1024)).toFixed(2) + ' MB';
 }
 
 // 1. GET VIDEO DETAILS
@@ -43,26 +47,40 @@ app.get('/api/video-details', async (req, res) => {
     });
     const data = response.data;
 
-    function getSizeMB(size) {
-      if (!size) return 'UNKNOWN';
-      return (size / (1024 * 1024)).toFixed(2) + ' MB';
-    }
+    const seenResolutions = new Set();
+    const videoFormats = data.availableQuality
+      .filter(q => q.type === 'video')
+      .sort((a, b) => parseInt(b.quality) - parseInt(a.quality)) // sort highest to lowest
+      .filter(q => {
+        if (seenResolutions.has(q.quality)) return false;
+        seenResolutions.add(q.quality);
+        return true;
+      })
+      .map(q => ({
+        itag: q.id,
+        resolution: q.quality,
+        format: q.mime ? q.mime.split(';')[0].replace('video/', '') : 'mp4',
+        size: getSizeMB(q.size),
+        hasAudio: true, // RapidAPI files are pre-merged!
+        needsMerging: false
+      }));
 
-    const videoFormats = data.availableQuality.filter(q => q.type === 'video').map(q => ({
-      itag: q.id,
-      resolution: q.quality,
-      format: q.mime ? q.mime.split(';')[0].replace('video/', '') : 'mp4',
-      size: getSizeMB(q.size),
-      hasAudio: true, // Assuming RapidAPI merges them
-      needsMerging: false
-    }));
-
-    const audioFormats = data.availableQuality.filter(q => q.type === 'audio').map(q => ({
-      itag: q.id,
-      quality: q.quality || (q.bitrate ? Math.round(parseInt(q.bitrate)/1000)+'kbps' : 'audio'),
-      format: q.mime ? q.mime.split(';')[0].replace('audio/', '') : 'mp3',
-      size: getSizeMB(q.size)
-    }));
+    const seenAudio = new Set();
+    const audioFormats = data.availableQuality
+      .filter(q => q.type === 'audio')
+      .sort((a, b) => parseInt(b.bitrate || '0') - parseInt(a.bitrate || '0'))
+      .filter(q => {
+        const quality = q.quality || (q.bitrate ? Math.round(parseInt(q.bitrate)/1000)+'kbps' : 'audio');
+        if (seenAudio.has(quality)) return false;
+        seenAudio.add(quality);
+        return true;
+      })
+      .map(q => ({
+        itag: q.id,
+        quality: q.quality || (q.bitrate ? Math.round(parseInt(q.bitrate)/1000)+'kbps' : 'audio'),
+        format: q.mime ? q.mime.split(';')[0].replace('audio/', '') : 'mp3',
+        size: getSizeMB(q.size)
+      }));
 
     res.json({
       title: data.title,
@@ -94,7 +112,8 @@ async function downloadRapidApiFile(conversionId, rapidApiUrl, finalFilename, re
         break;
       }
     } catch (e) {
-      await new Promise(r => setTimeout(r, 5000));
+      // If 404 or error, wait 3 seconds and retry
+      await new Promise(r => setTimeout(r, 3000));
     }
   }
 
@@ -125,18 +144,18 @@ async function downloadRapidApiFile(conversionId, rapidApiUrl, finalFilename, re
   }
 }
 
-app.get('/api/progress', (req, res) => {
+app.get('/api/conversion-progress', (req, res) => {
   const data = conversionProgress.get(req.query.conversionId);
   if (data) res.json(data);
   else res.status(404).json({ error: 'not found' });
 });
 
-app.get('/api/convert', async (req, res) => {
+app.post('/api/convert-to-mp4', async (req, res) => {
   try {
-    const videoId = extractVideoId(req.query.url);
-    const itag = req.query.videoItag;
+    const videoId = extractVideoId(req.body.url);
+    const itag = req.body.itag;
     const conversionId = Date.now().toString();
-    const filename = (req.query.title || 'video').replace(/[^a-z0-9]/gi, '_') + '.mp4';
+    const filename = (req.body.title || 'video').replace(/[^a-z0-9]/gi, '_') + '.mp4';
     
     const rapidRes = await axios.get(`https://${RAPIDAPI_HOST}/download_video/${videoId}?quality=${itag}`, {
       headers: { 'x-rapidapi-host': RAPIDAPI_HOST, 'x-rapidapi-key': RAPIDAPI_KEY }
@@ -144,16 +163,18 @@ app.get('/api/convert', async (req, res) => {
     
     downloadRapidApiFile(conversionId, rapidRes.data.file, filename, res);
   } catch (e) {
+    console.error('convert-to-mp4 error:', e.message);
     res.status(500).json({ error: 'error' });
   }
 });
 
-app.get('/api/merge', async (req, res) => {
+app.post('/api/stream-merge', async (req, res) => {
   try {
-    const videoId = extractVideoId(req.query.url);
-    const itag = req.query.videoItag;
+    // RapidAPI already returns merged video+audio! We just use videoItag
+    const videoId = extractVideoId(req.body.url);
+    const itag = req.body.videoItag;
     const conversionId = Date.now().toString();
-    const filename = (req.query.title || 'video').replace(/[^a-z0-9]/gi, '_') + '.mp4';
+    const filename = (req.body.title || 'video').replace(/[^a-z0-9]/gi, '_') + '.mp4';
     
     const rapidRes = await axios.get(`https://${RAPIDAPI_HOST}/download_video/${videoId}?quality=${itag}`, {
       headers: { 'x-rapidapi-host': RAPIDAPI_HOST, 'x-rapidapi-key': RAPIDAPI_KEY }
@@ -161,16 +182,17 @@ app.get('/api/merge', async (req, res) => {
     
     downloadRapidApiFile(conversionId, rapidRes.data.file, filename, res);
   } catch (e) {
+    console.error('stream-merge error:', e.message);
     res.status(500).json({ error: 'error' });
   }
 });
 
-app.get('/api/audio-to-mp3', async (req, res) => {
+app.post('/api/audio-to-mp3', async (req, res) => {
   try {
-    const videoId = extractVideoId(req.query.url);
-    const itag = req.query.audioItag;
+    const videoId = extractVideoId(req.body.url);
+    const itag = req.body.audioItag;
     const conversionId = Date.now().toString();
-    const filename = (req.query.title || 'audio').replace(/[^a-z0-9]/gi, '_') + '.mp3';
+    const filename = (req.body.title || 'audio').replace(/[^a-z0-9]/gi, '_') + '.mp3';
     
     const rapidRes = await axios.get(`https://${RAPIDAPI_HOST}/download_audio/${videoId}?quality=${itag}`, {
       headers: { 'x-rapidapi-host': RAPIDAPI_HOST, 'x-rapidapi-key': RAPIDAPI_KEY }
@@ -178,13 +200,16 @@ app.get('/api/audio-to-mp3', async (req, res) => {
     
     downloadRapidApiFile(conversionId, rapidRes.data.file, filename, res);
   } catch (e) {
+    console.error('audio-to-mp3 error:', e.message);
     res.status(500).json({ error: 'error' });
   }
 });
 
 const handleDownload = (req, res) => {
   const data = conversionProgress.get(req.query.conversionId);
-  if (!data || data.status !== 'completed' || !fs.existsSync(data.filePath)) return res.status(404).json({error: 'File not ready'});
+  if (!data || data.status !== 'completed' || !fs.existsSync(data.filePath)) {
+    return res.status(404).json({error: 'File not ready'});
+  }
   res.download(data.filePath, data.filename, () => {
     fs.unlink(data.filePath, ()=>{});
     conversionProgress.delete(req.query.conversionId);
