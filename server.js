@@ -91,6 +91,7 @@ app.get('/api/video-details', async (req, res) => {
       .map(q => ({
         itag: q.id,
         quality: q.quality || (q.bitrate ? Math.round(parseInt(q.bitrate)/1000)+'kbps' : 'audio'),
+        abr: q.bitrate ? Math.round(parseInt(q.bitrate)/1000) : 128,
         format: q.mime ? q.mime.split(';')[0].replace('audio/', '') : 'mp3',
         size: getSizeMB(q.size)
       }));
