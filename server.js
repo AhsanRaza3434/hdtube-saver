@@ -12,7 +12,7 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.set('trust proxy', 1);
 app.use(compression());
 app.use(cors({ origin: '*' }));
-app.use(express.json()); // Need to parse JSON bodies for POST requests!
+app.use(express.json());
 
 const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || 'REDACTED_RAPIDAPI_KEY';
 const RAPIDAPI_HOST = 'youtube-video-fast-downloader-24-7.p.rapidapi.com';
@@ -32,7 +32,13 @@ function getSizeMB(size) {
   return (size / (1024 * 1024)).toFixed(2) + ' MB';
 }
 
-// 1. GET VIDEO DETAILS
+function getCodecScore(mime) {
+  if (!mime) return 0;
+  if (mime.includes('avc1')) return 100; // Prefer standard MP4/H264
+  if (mime.includes('vp09')) return 50;
+  return 0; // AV1 usually fails on some API merges
+}
+
 app.get('/api/video-details', async (req, res) => {
   try {
     const url = req.query.url;
@@ -50,7 +56,14 @@ app.get('/api/video-details', async (req, res) => {
     const seenResolutions = new Set();
     const videoFormats = data.availableQuality
       .filter(q => q.type === 'video')
-      .sort((a, b) => parseInt(b.quality) - parseInt(a.quality)) // sort highest to lowest
+      .sort((a, b) => {
+        // Sort highest resolution first
+        const resA = parseInt(a.quality);
+        const resB = parseInt(b.quality);
+        if (resA !== resB) return resB - resA;
+        // If same resolution, prefer avc1
+        return getCodecScore(b.mime) - getCodecScore(a.mime);
+      })
       .filter(q => {
         if (seenResolutions.has(q.quality)) return false;
         seenResolutions.add(q.quality);
@@ -61,7 +74,7 @@ app.get('/api/video-details', async (req, res) => {
         resolution: q.quality,
         format: q.mime ? q.mime.split(';')[0].replace('video/', '') : 'mp4',
         size: getSizeMB(q.size),
-        hasAudio: true, // RapidAPI files are pre-merged!
+        hasAudio: true,
         needsMerging: false
       }));
 
@@ -95,13 +108,11 @@ app.get('/api/video-details', async (req, res) => {
   }
 });
 
-// Helper: Download from RapidAPI URL directly to tempDir
 async function downloadRapidApiFile(conversionId, rapidApiUrl, finalFilename, res) {
   const filePath = path.join(tempDir, finalFilename);
   conversionProgress.set(conversionId, { progress: 0, status: 'Preparing file on API server...', filename: finalFilename, filePath });
   res.json({ conversionId });
 
-  // Poll until it's ready
   let readyUrl = null;
   for (let i = 0; i < 60; i++) {
     try {
@@ -112,7 +123,6 @@ async function downloadRapidApiFile(conversionId, rapidApiUrl, finalFilename, re
         break;
       }
     } catch (e) {
-      // If 404 or error, wait 3 seconds and retry
       await new Promise(r => setTimeout(r, 3000));
     }
   }
@@ -163,14 +173,13 @@ app.post('/api/convert-to-mp4', async (req, res) => {
     
     downloadRapidApiFile(conversionId, rapidRes.data.file, filename, res);
   } catch (e) {
-    console.error('convert-to-mp4 error:', e.message);
+    console.error('convert-to-mp4 error:', e.response ? e.response.data : e.message);
     res.status(500).json({ error: 'error' });
   }
 });
 
 app.post('/api/stream-merge', async (req, res) => {
   try {
-    // RapidAPI already returns merged video+audio! We just use videoItag
     const videoId = extractVideoId(req.body.url);
     const itag = req.body.videoItag;
     const conversionId = Date.now().toString();
@@ -182,7 +191,7 @@ app.post('/api/stream-merge', async (req, res) => {
     
     downloadRapidApiFile(conversionId, rapidRes.data.file, filename, res);
   } catch (e) {
-    console.error('stream-merge error:', e.message);
+    console.error('stream-merge error:', e.response ? e.response.data : e.message);
     res.status(500).json({ error: 'error' });
   }
 });
@@ -200,7 +209,7 @@ app.post('/api/audio-to-mp3', async (req, res) => {
     
     downloadRapidApiFile(conversionId, rapidRes.data.file, filename, res);
   } catch (e) {
-    console.error('audio-to-mp3 error:', e.message);
+    console.error('audio-to-mp3 error:', e.response ? e.response.data : e.message);
     res.status(500).json({ error: 'error' });
   }
 });
