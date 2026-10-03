@@ -98,19 +98,27 @@ if (!fs.existsSync(tempDir)) {
 }
 
 // Setup cookies for yt-dlp if provided in environment
-let ytDlpCookiesArg = [];
+let ytDlpCookiesArg = [
+  '--geo-bypass' // Try to bypass basic geographic restrictions
+];
+
+if (process.env.YOUTUBE_PROXY) {
+  console.log('Using configured proxy for geo-bypassing:', process.env.YOUTUBE_PROXY);
+  ytDlpCookiesArg.push('--proxy', process.env.YOUTUBE_PROXY);
+}
+
 const cookiesPath = path.join(__dirname, 'youtube_cookies.txt');
 if (process.env.YOUTUBE_COOKIES) {
   try {
     fs.writeFileSync(cookiesPath, process.env.YOUTUBE_COOKIES);
     console.log('Successfully wrote YOUTUBE_COOKIES to youtube_cookies.txt');
-    ytDlpCookiesArg = ['--cookies', cookiesPath];
+    ytDlpCookiesArg.push('--cookies', cookiesPath);
   } catch (err) {
     console.error('Failed to write youtube_cookies.txt:', err);
   }
 } else if (fs.existsSync(cookiesPath)) {
   console.log('Found existing youtube_cookies.txt');
-  ytDlpCookiesArg = ['--cookies', cookiesPath];
+  ytDlpCookiesArg.push('--cookies', cookiesPath);
 } else {
   console.log('No YOUTUBE_COOKIES env var or youtube_cookies.txt found. Proceeding without cookies.');
 }
