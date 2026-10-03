@@ -1,5 +1,5 @@
 export const environment = {
   production: true,
   apiUrl: '/api',
-  siteUrl: 'https://hdtube-saver.vercel.app',
+  siteUrl: 'https://hdtube-saver.netlify.app',
 };

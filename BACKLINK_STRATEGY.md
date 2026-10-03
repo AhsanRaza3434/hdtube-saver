@@ -122,7 +122,7 @@ Hi [Name],
 I noticed a broken link on your page [URL]:
 The link to [dead tool] returns a 404.
 
-I run HDTube Saver (https://hdtube-saver.com), a free YouTube downloader
+I run HDTube Saver (https://hdtube-saver.netlify.app), a free YouTube downloader
 that could serve as a replacement. It's free, browser-based, and actively maintained.
 
 Would you consider updating the link?

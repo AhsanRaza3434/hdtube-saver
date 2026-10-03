@@ -25,7 +25,8 @@
             "assets": [
               "src/favicon.ico",
               "src/manifest.json",
-              "src/assets"
+              "src/assets",
+              { "glob": "**/*", "input": "public", "output": "/" }
             ],
             "styles": [
               "src/styles.css"

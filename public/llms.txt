@@ -1,6 +1,6 @@
 # llms.txt - HDTube Saver
 # AI crawler optimization file
-# https://hdtube-saver.com
+# https://hdtube-saver.netlify.app
 
 # HDTube Saver
 
@@ -17,10 +17,10 @@
 
 ## Pages
 
-- [Homepage](https://hdtube-saver.com/) - Main download tool
-- [FAQ](https://hdtube-saver.com/faq) - Frequently asked questions
-- [Privacy Policy](https://hdtube-saver.com/privacy-policy) - Privacy policy
-- [Terms of Service](https://hdtube-saver.com/terms-of-service) - Terms of service
+- [Homepage](https://hdtube-saver.netlify.app/) - Main download tool
+- [FAQ](https://hdtube-saver.netlify.app/faq) - Frequently asked questions
+- [Privacy Policy](https://hdtube-saver.netlify.app/privacy-policy) - Privacy policy
+- [Terms of Service](https://hdtube-saver.netlify.app/terms-of-service) - Terms of service
 
 ## Usage
 

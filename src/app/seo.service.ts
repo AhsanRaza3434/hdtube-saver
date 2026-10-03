@@ -7,7 +7,7 @@ import { filter } from 'rxjs/operators';
   providedIn: 'root',
 })
 export class SeoService {
-  private readonly siteUrl = 'https://hdtube-saver.com';
+  private readonly siteUrl = 'https://hdtube-saver.netlify.app';
   private readonly siteName = 'HDTube Saver';
 
   private readonly routeMeta: Record<
