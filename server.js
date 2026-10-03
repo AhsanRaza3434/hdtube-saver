@@ -6,7 +6,6 @@ const rateLimit = require('express-rate-limit');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const ytdl = require('ytdl-core');
 const https = require('https');
 
 const app = express();
@@ -98,6 +97,24 @@ if (!fs.existsSync(tempDir)) {
   fs.mkdirSync(tempDir, { recursive: true });
 }
 
+// Setup cookies for yt-dlp if provided in environment
+let ytDlpCookiesArg = [];
+const cookiesPath = path.join(__dirname, 'youtube_cookies.txt');
+if (process.env.YOUTUBE_COOKIES) {
+  try {
+    fs.writeFileSync(cookiesPath, process.env.YOUTUBE_COOKIES);
+    console.log('Successfully wrote YOUTUBE_COOKIES to youtube_cookies.txt');
+    ytDlpCookiesArg = ['--cookies', cookiesPath];
+  } catch (err) {
+    console.error('Failed to write youtube_cookies.txt:', err);
+  }
+} else if (fs.existsSync(cookiesPath)) {
+  console.log('Found existing youtube_cookies.txt');
+  ytDlpCookiesArg = ['--cookies', cookiesPath];
+} else {
+  console.log('No YOUTUBE_COOKIES env var or youtube_cookies.txt found. Proceeding without cookies.');
+}
+
 // Add this near the top of the file after the imports
 const videoUrls = new Map();
 
@@ -135,6 +152,7 @@ app.get('/api/video-details', async (req, res) => {
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
+      ...ytDlpCookiesArg,
       url
     ]);
 
@@ -263,59 +281,7 @@ app.get('/api/video-details', async (req, res) => {
 });
 
 // Also keep the POST endpoint for backward compatibility
-app.post('/api/video-details', async (req, res) => {
-  try {
-    const { url } = req.body;
-    if (!url) {
-      return res.status(400).json({ error: 'URL is required' });
-    }
 
-    // Store the original URL
-    const videoId = url.split('v=')[1]?.split('&')[0];
-    if (videoId) {
-      videoUrls.set(videoId, url);
-    }
-
-    const info = await ytdl.getInfo(url);
-    const formats = ytdl.filterFormats(info.formats, 'videoandaudio');
-
-    // Group formats by type
-    const videoFormats = formats
-      .filter(format => format.hasVideo)
-      .map(format => ({
-        itag: format.itag,
-        quality: format.qualityLabel || format.quality,
-        mimeType: format.mimeType,
-        hasAudio: format.hasAudio,
-        url: format.url,
-        container: format.container,
-        contentLength: format.contentLength,
-        pairedAudio: format.hasAudio ? null : formats.find(f => f.hasAudio && !f.hasVideo)?.url
-      }));
-
-    const audioFormats = formats
-      .filter(format => !format.hasVideo && format.hasAudio)
-      .map(format => ({
-        itag: format.itag,
-        quality: format.audioQuality || 'audio',
-        mimeType: format.mimeType,
-            url: format.url,
-        container: format.container,
-        contentLength: format.contentLength
-          }));
-
-        res.json({
-      title: info.videoDetails.title,
-      thumbnail: info.videoDetails.thumbnails[0].url,
-      videoFormats,
-      audioFormats,
-      originalUrl: url
-    });
-  } catch (error) {
-    console.error('Error fetching video details:', error);
-    res.status(500).json({ error: 'Failed to fetch video details' });
-  }
-});
 
 // Download video using yt-dlp
 app.get('/api/download', async (req, res) => {
@@ -391,6 +357,7 @@ app.post('/api/stream-merge', async (req, res) => {
       '--progress',
       '--no-simulate',
       '--no-warnings',
+      ...ytDlpCookiesArg,
       originalUrl
     ]);
 
@@ -454,6 +421,7 @@ app.post('/api/stream-merge', async (req, res) => {
         '--progress',
         '--no-simulate',
         '--no-warnings',
+        ...ytDlpCookiesArg,
         originalUrl
       ]);
 
@@ -637,6 +605,7 @@ app.post('/api/convert-to-mp4', async (req, res) => {
       '--dump-json',
       '--no-playlist',
       '--no-warnings',
+      ...ytDlpCookiesArg,
       originalUrl
     ]);
     let output = '';
@@ -678,6 +647,7 @@ app.post('/api/convert-to-mp4', async (req, res) => {
     const downloadProcess = spawn('yt-dlp', [
       '-f', itag,
       '-o', tempFilePath,
+      ...ytDlpCookiesArg,
       originalUrl
     ]);
 
@@ -766,6 +736,7 @@ app.post('/api/audio-to-mp3', async (req, res) => {
           '--dump-json',
           '--no-playlist',
           '--no-warnings',
+          ...ytDlpCookiesArg,
           originalUrl
         ]);
         let output = '';
@@ -813,6 +784,7 @@ app.post('/api/audio-to-mp3', async (req, res) => {
       '--progress',
       '--no-simulate',
       '--no-warnings',
+      ...ytDlpCookiesArg,
       originalUrl
     ];
     console.log(`[audio-to-mp3] conversionId=${conversionId}, itag=${audioItag}, tempAudioPath=${tempAudioPath}, tempMp3Path=${tempMp3Path}`);
