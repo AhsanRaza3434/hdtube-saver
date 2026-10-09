@@ -14,7 +14,7 @@ Conversion jobs and temporary files are kept in the Render process's memory and 
 
 ## Requirements
 
-- Node.js 18 for the configured Netlify build. The Angular 11 build currently uses the legacy OpenSSL provider on newer Node versions.
+- Node.js 20 for the configured builds. The Angular 11 build currently uses the legacy OpenSSL provider on newer Node versions.
 - A RapidAPI key for the configured YouTube downloader API.
 
 ## Local development
