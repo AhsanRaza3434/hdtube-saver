@@ -6,6 +6,7 @@ HDTube Saver is an Angular single-page application backed by an Express API. The
 
 - `src/`: Angular frontend and routes.
 - `server.js`: Express API, RapidAPI integration, conversion progress tracking, and temporary download files.
+- `worker.js` and `wrangler.jsonc`: Cloudflare Worker entry point, static asset serving, and `/api/*` proxy to Render.
 - `netlify.toml`: production frontend build, SPA fallback, and `/api/*` proxy to Render.
 - `render.yaml`: Render web-service configuration.
 
@@ -34,5 +35,7 @@ The API's `PORT` can be configured through the environment.
 ## Deployment
 
 Netlify builds and serves `dist/hdtube-saver`; its `/api/*` rewrite proxies to the Render service. Render runs `node server.js` and must have `RAPIDAPI_KEY` configured as a secret environment variable. Keep that key out of source control and rotate it if it has ever been committed.
+
+For Cloudflare Workers, connect the `cloudflare-frontend` branch, use `/` as the root directory, set the build command to `npm install --legacy-peer-deps && NODE_OPTIONS=--openssl-legacy-provider npm run build`, and keep the deploy command as `npx wrangler deploy`. The Worker serves the Angular build from `dist/hdtube-saver` and proxies `/api/*` to Render; it does not replace the Express API.
 
 The API applies per-process rate limits. For sustained traffic, multiple instances, or reliable downloads, use shared job state and durable object storage rather than the current in-memory map and ephemeral local files.
