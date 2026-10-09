@@ -1,6 +1,8 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { NO_ERRORS_SCHEMA } from '@angular/core';
 
 import { VideoDetailsComponent } from './video-details.component';
+import { YouTubeService } from '../youtube.service';
 
 describe('VideoDetailsComponent', () => {
   let component: VideoDetailsComponent;
@@ -8,7 +10,11 @@ describe('VideoDetailsComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      declarations: [ VideoDetailsComponent ]
+      declarations: [VideoDetailsComponent],
+      providers: [
+        { provide: YouTubeService, useValue: {} },
+      ],
+      schemas: [NO_ERRORS_SCHEMA],
     })
     .compileComponents();
   });

@@ -1,0 +1,30 @@
+<div class="legal-bg">
+  <header class="page-header">
+    <a routerLink="/" class="logo-link" aria-label="HDTube Saver Home">
+      <img src="/assets/logos/hdtube-logo.png" alt="HDTube Saver Logo" width="140" height="50" />
+    </a>
+    <nav class="nav-links" aria-label="Legal pages navigation">
+      <a routerLink="/faq" class="page-link" aria-current="page">FAQ</a>
+      <a routerLink="/privacy-policy" class="page-link">Privacy Policy</a>
+      <a routerLink="/terms-of-service" class="page-link">Terms</a>
+    </nav>
+  </header>
+  <main class="page-container">
+    <h1 class="page-title">Frequently Asked Questions (FAQ)</h1>
+    <div class="faq-accordion">
+      <div *ngFor="let faq of faqs; let i = index">
+        <button
+          class="faq-question"
+          [class.active]="openedIndex === i"
+          (click)="toggleFaq(i)"
+          [attr.aria-expanded]="openedIndex === i"
+        >
+          {{ faq.q }}
+        </button>
+        <div class="faq-answer" *ngIf="openedIndex === i" id="faq-answer-{{i}}">
+          {{ faq.a }}
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

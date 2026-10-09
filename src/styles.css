@@ -1,1 +1,399 @@
-/* You can add global styles to this file, and also import other style files */
+* {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif !important;
+}
+
+body {
+  margin: 0;
+}
+
+/* Screen reader only utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* SweetAlert2 compact styles */
+.swal-compact {
+  padding: 1.5rem 1.5rem 1rem 1.5rem !important;
+}
+.swal-title-compact {
+  margin-bottom: 0.5rem !important;
+  font-size: 1.3rem !important;
+}
+.swal-content-compact {
+  margin-bottom: 0.5rem !important;
+  font-size: 1rem !important;
+}
+
+:root {
+  --primary-red: #d32f2f;
+  --primary-red-dark: #b71c1c;
+  --primary-red-light: #ffebee;
+}
+
+body, .seo-content, .page-text, .faq-answer {
+  color: #555 !important;
+}
+
+#swal2-html-container {
+  padding: 0 !important;
+  line-height: 1.6 !important;
+  font-size: 17px !important;
+  overflow: hidden;
+}
+
+.swal2-icon.swal2-error.swal2-icon-show {
+  margin-top: 0;
+}
+
+.swal2-popup.swal2-modal.swal-compact.swal2-icon-error.swal2-show {
+  padding: 2rem !important;
+}
+
+/* Only set max-width on .seo-content for homepage text readability */
+.seo-content {
+  max-width: 800px;
+  margin: 0 auto 2rem auto;
+  padding: 0 1rem;
+}
+
+.video-input-container {
+  width: 100%;
+}
+
+/* Enhanced background for legal/FAQ pages */
+.legal-bg {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #fbe9e7 0%, #f8fbff 100%);
+  padding: 0;
+  padding-bottom: 4rem;
+}
+
+/* Beautiful header for legal/FAQ pages */
+.page-header {
+  width: 100%;
+  background: #fff;
+  color: #222;
+  padding: 1rem 0 1.2rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  font-size: 1.2rem;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.page-header .logo-link {
+  display: flex;
+  align-items: center;
+  margin-left: 2.5rem;
+  text-decoration: none;
+}
+.page-header .logo-link img {
+  height: 70px;
+  width: auto;
+  margin-right: 0;
+  display: block;
+}
+.page-header .nav-links {
+  display: flex;
+  align-items: center;
+  margin-right: 2.5rem;
+}
+.page-header .page-link {
+  color: var(--primary-red);
+  text-decoration: none;
+  margin-left: 2.2rem;
+  font-size: 1.13rem;
+  font-weight: 600;
+  transition: color 0.2s, text-decoration 0.2s;
+  padding-bottom: 2px;
+}
+.page-header .page-link:hover {
+  color: var(--primary-red-dark);
+  text-decoration: underline;
+}
+
+/* FAQ Accordion Styles */
+.faq-accordion {
+  margin-top: 2.2rem;
+}
+.faq-question {
+  background: #fff5f5;
+  color: var(--primary-red);
+  font-weight: 600;
+  font-size: 1.13rem;
+  border: none;
+  outline: none;
+  width: 100%;
+  text-align: left;
+  padding: 1.1rem 1.2rem;
+  border-radius: 10px;
+  margin-bottom: 0.7rem;
+  box-shadow: 0 1px 4px rgba(211, 47, 47, 0.07);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.faq-question:hover, .faq-question.active {
+  background: var(--primary-red-light);
+  color: var(--primary-red-dark);
+}
+.faq-answer {
+  background: #fff;
+  color: #222;
+  font-size: 1.05rem;
+  border-radius: 0 0 10px 10px;
+  margin-top: -0.5rem;
+  margin-bottom: 1.2rem;
+  padding: 1.1rem 1.5rem 1.1rem 2.2rem;
+  box-shadow: 0 1px 4px rgba(211, 47, 47, 0.04);
+  animation: fadeInAccordion 0.3s;
+}
+@keyframes fadeInAccordion {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* FAQ, Privacy, Terms base styles */
+.page-container {
+  max-width: 700px;
+  margin: 4.5rem auto 0 auto;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 4px 32px rgba(211, 47, 47, 0.10), 0 1.5px 6px rgba(0,0,0,0.04);
+  padding: 2.5rem 2.5rem 2rem 2.5rem;
+  font-family: 'Roboto', sans-serif!important;
+  position: relative;
+  animation: fadeInCard 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+@keyframes fadeInCard {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-title {
+  font-size: 2.2rem;
+  font-weight: 700;
+  margin-bottom: 1.7rem;
+  color: var(--primary-red);
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+.page-section-title {
+  font-size: 1.18rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: var(--primary-red);
+}
+.page-text {
+  font-size: 1.05rem;
+  color: #222;
+  margin-bottom: 1rem;
+  line-height: 1.7;
+}
+.page-link {
+  color: var(--primary-red);
+  text-decoration: none;
+  font-weight: 600;
+  transition: color 0.2s;
+}
+.page-link:hover {
+  color: var(--primary-red-dark);
+  text-decoration: underline;
+}
+
+/* Homepage logo centering */
+.main-logo {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 2.5rem;
+  margin-bottom: 1.5rem;
+}
+.main-logo img {
+  height: 110px;
+  width: auto;
+  display: block;
+}
+
+/* Buttons (for consistency) */
+.btn-download, button, .swal2-confirm {
+  background: var(--primary-red);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.7rem 1.3rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-download:hover, button:hover, .swal2-confirm:hover {
+  background: var(--primary-red-dark);
+}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .page-container {
+    margin: 3rem 1.5rem 0 1.5rem;
+    padding: 2rem 1.5rem 1.5rem 1.5rem;
+  }
+  .page-title {
+    font-size: 1.8rem;
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .page-header .logo-link {
+    margin-left: 1.5rem;
+  }
+  .page-header .logo-link img {
+    height: 50px;
+  }
+  .page-header .page-link {
+    margin-left: 1.2rem;
+    font-size: 15px;
+    font-weight: 800;
+  }
+  .page-container {
+    margin: 2rem 1rem 0 1rem;
+    padding: 1.5rem 1.2rem 1.2rem 1.2rem;
+    border-radius: 12px;
+  }
+  .page-title {
+    font-size: 1.5rem;
+    margin-bottom: 1.2rem;
+  }
+  .page-section-title {
+    font-size: 1.05rem;
+  }
+  .page-text {
+    font-size: 0.95rem;
+  }
+  .seo-content {
+    padding: 0 0.8rem;
+  }
+  .seo-title {
+    font-size: 1.6rem !important;
+  }
+  .input-form {
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+  .input-form input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .input-form button {
+    width: 100%;
+  }
+  .details-table {
+    font-size: 0.85rem;
+  }
+  .details-table th,
+  .details-table td {
+    padding: 0.5rem 0.4rem;
+  }
+  .tab-button {
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+  }
+  .footer-content {
+    padding: 0 1rem;
+  }
+  .footer-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: center;
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .page-header {
+    flex-direction: column;
+    padding: 0.8rem 0;
+    gap: 0.5rem;
+  }
+  .page-header .logo-link {
+    margin-left: 0;
+  }
+  .page-header .nav-links {
+    margin-right: 0;
+    justify-content: center;
+  }
+  .page-header .page-link {
+    margin: 0 0.6rem;
+    font-size: 14px;
+  }
+  .page-container {
+    margin: 1.5rem 0.6rem 0 0.6rem;
+    padding: 1.2rem 1rem 1rem 1rem;
+  }
+  .page-title {
+    font-size: 1.3rem;
+  }
+  .seo-title {
+    font-size: 1.4rem !important;
+  }
+  .seo-description {
+    font-size: 0.9rem;
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary-red-light: #2d1b1b;
+  }
+  .legal-bg {
+    background: linear-gradient(135deg, #1a1a1a 0%, #0d1117 100%);
+  }
+  .page-header {
+    background: #1e1e1e;
+    color: #e0e0e0;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+  .page-container {
+    background: #1e1e1e;
+    box-shadow: 0 4px 32px rgba(0,0,0,0.3);
+  }
+  .page-text {
+    color: #e0e0e0 !important;
+  }
+  .faq-question {
+    background: #2d1b1b;
+  }
+  .faq-question:hover, .faq-question.active {
+    background: #3d2b2b;
+  }
+  .faq-answer {
+    background: #2a2a2a;
+    color: #e0e0e0;
+  }
+}

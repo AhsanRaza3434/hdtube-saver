@@ -1,12 +1,8 @@
 /* Apply fonts globally */
 ::ng-deep body {
-  background-color: #ecf7ff;
+  background-color: #ffffff;
   margin: 0;
   padding: 0;
-}
-
-* {
-  font-family: 'Poppins', sans-serif!important;
 }
 
 /* Header Styling */
@@ -38,7 +34,7 @@
 }
 
 .header-nav a {
-  color: #007bff;
+  color: var(--primary-red);
   text-decoration: none;
   margin-left: 20px;
   font-size: 16px;
@@ -77,10 +73,11 @@
 }
 
 .footer-links a {    
-  color: #007bff;
+  color: var(--primary-red);
   text-decoration: none;
   margin: 0 10px;
   font-size: 15px;
+  font-weight: 600;
 }
 
 .footer-links a:hover {
@@ -93,8 +90,13 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 0px 20px 20px;
   height: 100%;
+}
+
+a {
+  text-decoration: none !important;
+  color: #0087ff;
 }
 
 /* Overall container styling */
@@ -111,13 +113,14 @@
   text-align: center;
   margin-bottom: 20px;
   color: #333;
+  padding-bottom: 1rem;
 }
 
 .seo-title {
   font-size: 2rem;
-  font-family: 'Poppins', sans-serif;
-  color: #007bff;
-  margin-bottom: 10px;
+  font-family: 'Roboto', sans-serif;
+  color: var(--primary-red);
+  margin-bottom: 2rem;
 }
 
 .seo-description {
@@ -133,13 +136,18 @@
   display: flex;
   gap: 10px;
   justify-content: center;
-  margin-bottom: 20px;
+  margin-bottom: 2rem;
+}
+
+.error-message {
+  color: #b00020;
+  margin: -1rem 0 1.5rem;
 }
 
 input[type='url'] {
   flex: 1;
   padding: 12px;
-  border: 2px solid #007bff;
+  border: 2px solid var(--primary-red);
   border-radius: 8px;
   font-size: 14px;
   color: #333;
@@ -148,24 +156,24 @@ input[type='url'] {
 
 input[type='url']:focus {
   outline: none;
-  border-color: #0056b3;
+  border-color: var(--primary-red);
   box-shadow: 0 0 8px rgba(0, 91, 187, 0.3);
 }
 
 button {
   padding: 12px 20px;
   border: none;
-  background-color: #007bff;
+  background-color: var(--primary-red);
   color: white;
   border-radius: 8px;
   font-weight: bold;
   cursor: pointer;
   transition: background-color 0.3s ease;
-  font-family: 'Poppins', sans-serif!important;
+  font-family: 'Roboto', sans-serif!important;
 }
 
 button:hover {
-  background-color: #0056b3;
+  background-color: var(--primary-red);
 }
 
 .video-input-container {
@@ -179,7 +187,7 @@ button:hover {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(219, 236, 250, 0.98);
+  background-color: rgba(255 ,255 ,255 ,98%);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -189,6 +197,7 @@ button:hover {
 
 .loading-container {
   display: flex;
+  flex-direction: column;
   justify-content: center;
   align-items: center;
   position: fixed;
@@ -199,10 +208,33 @@ button:hover {
   margin: auto;
 }
 
-.loading-container img {
-  width: auto;
+.brand-loader {
+  width: 140px;
   height: auto;
-  opacity: .9;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  animation: pulse-glow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-glow {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+    filter: drop-shadow(0 0 5px rgba(196, 48, 43, 0.3));
+  }
+  100% {
+    transform: scale(1.05);
+    opacity: 1;
+    filter: drop-shadow(0 0 20px rgba(196, 48, 43, 0.6));
+  }
+}
+
+.loading-text {
+  font-family: 'Roboto', sans-serif;
+  color: #c4302b;
+  font-weight: 600;
+  font-size: 15px;
+  margin: 0;
 }
 
 .thumbnail {
@@ -228,7 +260,7 @@ button:hover {
 }
 
 .details-table th {
-  background-color: #007bff;
+  background-color: var(--primary-red);
   color: white;
   font-weight: bold;
 }
@@ -282,8 +314,9 @@ button.btn:hover {
     font-size: 22px;
   }
   
-  .seo-description {
+  .seo-description, .seo-content, .page-text, .faq-answer {
     font-size: 14px;
+    line-height: 1.6;
   }
 
   .header-logo {
