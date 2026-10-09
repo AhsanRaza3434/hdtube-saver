@@ -4,6 +4,7 @@ const compression = require('compression');
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
+const { rateLimit } = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 10000;
@@ -12,19 +13,58 @@ app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.set('trust proxy', 1);
 app.use(compression());
 app.use(cors({ origin: '*' }));
-app.use(express.json());
+app.use(express.json({ limit: '32kb' }));
 
-const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || 'REDACTED_RAPIDAPI_KEY';
+app.use('/api', rateLimit({
+  windowMs: 60 * 1000,
+  limit: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please wait and try again.' }
+}));
+
+const conversionRateLimit = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many download requests. Please wait before starting another.' }
+});
+
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY;
 const RAPIDAPI_HOST = 'youtube-video-fast-downloader-24-7.p.rapidapi.com';
+if (!RAPIDAPI_KEY) {
+  console.error('FATAL: RAPIDAPI_KEY environment variable is not set.');
+  process.exit(1);
+}
 
+const crypto = require('crypto');
 const tempDir = path.join(__dirname, 'temp');
 if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
 const conversionProgress = new Map();
 
+// Unique per-request ID: used both as conversionId and as the on-disk filename,
+// so two users downloading the same video never overwrite each other.
+function newConversionId() {
+  return crypto.randomBytes(12).toString('hex');
+}
+
+// Drop finished/abandoned conversions (and their files) after 30 minutes.
+const MAX_AGE_MS = 30 * 60 * 1000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, data] of conversionProgress) {
+    if (now - (data.createdAt || now) > MAX_AGE_MS) {
+      if (data.filePath) fs.unlink(data.filePath, () => {});
+      conversionProgress.delete(id);
+    }
+  }
+}, 5 * 60 * 1000).unref();
+
 function extractVideoId(url) {
-  let videoId = url.split('v=')[1]?.split('&')[0];
-  if (!videoId) videoId = url.split('youtu.be/')[1]?.split('?')[0];
-  return videoId;
+  if (!url || typeof url !== 'string') return null;
+  const m = url.match(/(?:v=|youtu\.be\/|\/shorts\/|\/embed\/|\/live\/)([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
 }
 
 function getSizeMB(size) {
@@ -80,19 +120,19 @@ app.get('/api/video-details', async (req, res) => {
 
     const seenAudio = new Set();
     const audioFormats = data.availableQuality
-      .filter(q => q.type === 'audio')
-      .sort((a, b) => parseInt(b.bitrate || '0') - parseInt(a.bitrate || '0'))
-      .filter(q => {
-        const quality = q.quality || (q.bitrate ? Math.round(parseInt(q.bitrate)/1000)+'kbps' : 'audio');
-        if (seenAudio.has(quality)) return false;
-        seenAudio.add(quality);
+      .filter(q => q.type === 'audio' && q.id && String(q.id) !== '0' && q.size > 0 && parseInt(q.bitrate) > 0)
+      .sort((a, b) => parseInt(b.bitrate) - parseInt(a.bitrate))
+      .map(q => ({ q, kbps: Math.round(parseInt(q.bitrate) / 1000) }))
+      .filter(({ kbps }) => {
+        if (seenAudio.has(kbps)) return false;
+        seenAudio.add(kbps);
         return true;
       })
-      .map(q => ({
+      .map(({ q, kbps }) => ({
         itag: q.id,
-        quality: q.quality || (q.bitrate ? Math.round(parseInt(q.bitrate)/1000)+'kbps' : 'audio'),
-        abr: q.bitrate ? Math.round(parseInt(q.bitrate)/1000) : 128,
-        format: q.mime ? q.mime.split(';')[0].replace('audio/', '') : 'mp3',
+        quality: `${kbps}kbps`,
+        abr: kbps,
+        format: 'm4a', // RapidAPI's download_audio always returns an M4A (AAC) file
         size: getSizeMB(q.size)
       }));
 
@@ -109,120 +149,95 @@ app.get('/api/video-details', async (req, res) => {
   }
 });
 
-async function downloadRapidApiFile(conversionId, rapidApiUrl, finalFilename, res) {
-  const filePath = path.join(tempDir, finalFilename);
-  conversionProgress.set(conversionId, { progress: 0, status: 'Preparing file on API server...', filename: finalFilename, filePath });
-  res.json({ conversionId });
+// Poll RapidAPI until the prepared file exists, then stream it to tempDir.
+// The on-disk name is the unique conversionId; `filename` is only the name shown to the user.
+async function prepareFile(conversionId, rapidApiUrl, filename, ext) {
+  const filePath = path.join(tempDir, `${conversionId}.${ext}`);
+  const createdAt = Date.now();
+  const set = (progress, status) =>
+    conversionProgress.set(conversionId, { progress, status, filename, filePath, createdAt });
 
-  let readyUrl = null;
-  for (let i = 0; i < 60; i++) {
+  set(5, 'Preparing file on API server...');
+
+  let ready = false;
+  for (let i = 0; i < 100 && !ready; i++) {          // ~5 minutes max (RapidAPI says 20-300s)
+    set(Math.min(10 + i, 80), 'Preparing file on API server...');
     try {
-      conversionProgress.set(conversionId, { progress: Math.min(10 + i, 80), status: 'Preparing file on API server...', filename: finalFilename, filePath });
-      const headCheck = await axios.head(rapidApiUrl, { timeout: 5000 });
-      if (headCheck.status === 200) {
-        readyUrl = rapidApiUrl;
-        break;
-      }
-    } catch (e) {
-      await new Promise(r => setTimeout(r, 3000));
-    }
+      const head = await axios.head(rapidApiUrl, { timeout: 5000 });
+      ready = head.status === 200;
+    } catch (e) { /* 404 until ready */ }
+    if (!ready) await new Promise(r => setTimeout(r, 3000));
   }
+  if (!ready) return set(0, 'error');
 
-  if (!readyUrl) {
-    conversionProgress.set(conversionId, { progress: 0, status: 'error', filename: finalFilename, filePath });
-    return;
-  }
-
-  conversionProgress.set(conversionId, { progress: 85, status: 'Downloading to our server...', filename: finalFilename, filePath });
+  set(85, 'Downloading to our server...');
   try {
-    const fileResponse = await axios({
-      method: 'GET',
-      url: readyUrl,
-      responseType: 'stream'
-    });
-    
+    const fileResponse = await axios({ method: 'GET', url: rapidApiUrl, responseType: 'stream', timeout: 120000 });
     const writer = fs.createWriteStream(filePath);
     fileResponse.data.pipe(writer);
-    
-    writer.on('finish', () => {
-      conversionProgress.set(conversionId, { progress: 100, status: 'completed', filename: finalFilename, filePath });
-    });
-    writer.on('error', () => {
-      conversionProgress.set(conversionId, { progress: 0, status: 'error', filename: finalFilename, filePath });
-    });
+    writer.on('finish', () => set(100, 'completed'));
+    writer.on('error', () => set(0, 'error'));
+    fileResponse.data.on('error', () => { writer.destroy(); set(0, 'error'); });
   } catch (e) {
-    conversionProgress.set(conversionId, { progress: 0, status: 'error', filename: finalFilename, filePath });
+    set(0, 'error');
   }
+}
+
+function safeTitle(title, fallback) {
+  return (title || fallback).replace(/[^a-z0-9]/gi, '_').substring(0, 80) || fallback;
+}
+
+// Shared handler for all three "start" endpoints.
+function startConversion(kind, itagField, ext) {
+  return async (req, res) => {
+    const videoId = extractVideoId(req.body && req.body.url);
+    const itag = req.body && req.body[itagField];
+    if (!videoId) return res.status(400).json({ error: 'Invalid YouTube URL' });
+    if (!itag || !/^\d+$/.test(String(itag))) return res.status(400).json({ error: 'Invalid format id' });
+
+    try {
+      const endpoint = kind === 'audio' ? 'download_audio' : 'download_video';
+      const rapidRes = await axios.get(`https://${RAPIDAPI_HOST}/${endpoint}/${videoId}?quality=${itag}`, {
+        headers: { 'x-rapidapi-host': RAPIDAPI_HOST, 'x-rapidapi-key': RAPIDAPI_KEY },
+        timeout: 20000
+      });
+      if (!rapidRes.data || !rapidRes.data.file) {
+        console.error(`${endpoint} returned no file:`, rapidRes.data);
+        return res.status(502).json({ error: 'Upstream did not return a file' });
+      }
+      const conversionId = newConversionId();
+      const filename = `${safeTitle(req.body.title, kind)}.${ext}`;
+      // Register state before responding so the first progress poll never 404s
+      conversionProgress.set(conversionId, { progress: 0, status: 'starting', filename, filePath: null, createdAt: Date.now() });
+      res.json({ conversionId });
+      prepareFile(conversionId, rapidRes.data.file, filename, ext);
+    } catch (e) {
+      console.error(`${kind} start error:`, e.response ? e.response.data : e.message);
+      res.status(502).json({ error: 'Failed to start conversion' });
+    }
+  };
 }
 
 app.get('/api/conversion-progress', (req, res) => {
   const data = conversionProgress.get(req.query.conversionId);
-  if (data) res.json(data);
-  else res.status(404).json({ error: 'not found' });
+  if (!data) return res.status(404).json({ error: 'not found' });
+  res.json({ progress: data.progress, status: data.status, filename: data.filename }); // don't leak server paths
 });
 
-app.post('/api/convert-to-mp4', async (req, res) => {
-  try {
-    const videoId = extractVideoId(req.body.url);
-    const itag = req.body.itag;
-    const conversionId = Date.now().toString();
-    const filename = (req.body.title || 'video').replace(/[^a-z0-9]/gi, '_') + '.mp4';
-    
-    const rapidRes = await axios.get(`https://${RAPIDAPI_HOST}/download_video/${videoId}?quality=${itag}`, {
-      headers: { 'x-rapidapi-host': RAPIDAPI_HOST, 'x-rapidapi-key': RAPIDAPI_KEY }
-    });
-    
-    downloadRapidApiFile(conversionId, rapidRes.data.file, filename, res);
-  } catch (e) {
-    console.error('convert-to-mp4 error:', e.response ? e.response.data : e.message);
-    res.status(500).json({ error: 'error' });
-  }
-});
-
-app.post('/api/stream-merge', async (req, res) => {
-  try {
-    const videoId = extractVideoId(req.body.url);
-    const itag = req.body.videoItag;
-    const conversionId = Date.now().toString();
-    const filename = (req.body.title || 'video').replace(/[^a-z0-9]/gi, '_') + '.mp4';
-    
-    const rapidRes = await axios.get(`https://${RAPIDAPI_HOST}/download_video/${videoId}?quality=${itag}`, {
-      headers: { 'x-rapidapi-host': RAPIDAPI_HOST, 'x-rapidapi-key': RAPIDAPI_KEY }
-    });
-    
-    downloadRapidApiFile(conversionId, rapidRes.data.file, filename, res);
-  } catch (e) {
-    console.error('stream-merge error:', e.response ? e.response.data : e.message);
-    res.status(500).json({ error: 'error' });
-  }
-});
-
-app.post('/api/audio-to-mp3', async (req, res) => {
-  try {
-    const videoId = extractVideoId(req.body.url);
-    const itag = req.body.audioItag;
-    const conversionId = Date.now().toString();
-    const filename = (req.body.title || 'audio').replace(/[^a-z0-9]/gi, '_') + '.mp3';
-    
-    const rapidRes = await axios.get(`https://${RAPIDAPI_HOST}/download_audio/${videoId}?quality=${itag}`, {
-      headers: { 'x-rapidapi-host': RAPIDAPI_HOST, 'x-rapidapi-key': RAPIDAPI_KEY }
-    });
-    
-    downloadRapidApiFile(conversionId, rapidRes.data.file, filename, res);
-  } catch (e) {
-    console.error('audio-to-mp3 error:', e.response ? e.response.data : e.message);
-    res.status(500).json({ error: 'error' });
-  }
-});
+app.post('/api/convert-to-mp4', conversionRateLimit, startConversion('video', 'itag', 'mp4'));
+// RapidAPI returns video already muxed with audio, so stream-merge only needs the video itag.
+app.post('/api/stream-merge', conversionRateLimit, startConversion('video', 'videoItag', 'mp4'));
+app.post('/api/audio-to-mp3', conversionRateLimit, startConversion('audio', 'audioItag', 'm4a')); // route name kept for frontend compatibility
 
 const handleDownload = (req, res) => {
-  const data = conversionProgress.get(req.query.conversionId);
-  if (!data || data.status !== 'completed' || !fs.existsSync(data.filePath)) {
-    return res.status(404).json({error: 'File not ready'});
+  const id = req.query.conversionId;
+  const data = conversionProgress.get(id);
+  if (!data || data.status !== 'completed' || !data.filePath || !fs.existsSync(data.filePath)) {
+    return res.status(404).json({ error: 'File not ready' });
   }
   res.download(data.filePath, data.filename, () => {
-    fs.unlink(data.filePath, ()=>{});
-    conversionProgress.delete(req.query.conversionId);
+    fs.unlink(data.filePath, () => {});
+    conversionProgress.delete(id);
   });
 };
 

@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: hdtube-saver-api
+    name: hdtube-saver-prod
     env: node
     plan: free
     buildCommand: npm install --production
@@ -9,5 +9,5 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
+      - key: RAPIDAPI_KEY
+        sync: false
