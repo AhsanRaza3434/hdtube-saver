@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { YouTubeService } from '../youtube.service';
 import { HttpClient } from '@angular/common/http';
-import { interval, Subscription } from 'rxjs';
+import { interval, Subscription, EMPTY } from 'rxjs';
 import { takeWhile, switchMap, catchError } from 'rxjs/operators';
 
 @Component({
@@ -24,7 +24,7 @@ import { takeWhile, switchMap, catchError } from 'rxjs/operators';
               <div class="progress-glow"></div>
             </div>
           </div>
-          <p class="progress-text">{{ progress }}%</p>
+          <p class="progress-text">{{ progress }}% (estimate)</p>
           <div class="status-message" *ngIf="status !== 'Converting and downloading...'">
             {{ getStatusMessage(status) }}
           </div>
@@ -175,8 +175,6 @@ export class ConversionProgressComponent implements OnInit, OnDestroy {
   private progressSubscription: Subscription | null = null;
   private retryCount = 0;
   private maxRetries = 3;
-  private fakeProgressTimer: any = null;
-  private lastRealProgress = 0;
 
   constructor(
     private youtubeService: YouTubeService,
@@ -192,8 +190,6 @@ export class ConversionProgressComponent implements OnInit, OnDestroy {
     this.currentUrl = url;
     this.currentTitle = title;
     this.retryCount = 0;
-    this.lastRealProgress = 0;
-    this.startFakeProgress(90); // Simulate up to 90%
 
     console.log('Starting conversion with:', { url, title, videoItag, audioItag });
 
@@ -239,49 +235,40 @@ export class ConversionProgressComponent implements OnInit, OnDestroy {
       this.progressSubscription.unsubscribe();
     }
 
-    this.progressSubscription = interval(2000) // Check every 2 seconds instead of 1
+    this.progressSubscription = interval(2000)
       .pipe(
         takeWhile(() => this.isConverting),
-        switchMap(() => this.youtubeService.getConversionProgress(conversionId)),
-        catchError(error => {
-          console.error('Progress check error:', error);
-          this.retryCount++;
-          if (this.retryCount >= this.maxRetries) {
-            this.handleError('Error checking progress. Please try again.');
-            throw error;
-          }
-          return this.youtubeService.getConversionProgress(conversionId);
-        })
+        switchMap(() => this.youtubeService.getConversionProgress(conversionId).pipe(
+          catchError(error => {
+            console.error('Progress check error:', error);
+            this.retryCount++;
+            if (this.retryCount >= this.maxRetries) {
+              this.handleError('Error checking progress. Please try again.');
+            }
+            return EMPTY;
+          })
+        )),
+        // Stop polling at the first terminal status so the download fires exactly once
+        takeWhile((p: any) => p.status !== 'completed' && p.status !== 'error', true)
       )
       .subscribe(
         (progress: any) => {
-          // Smooth progress logic
-          if (progress.progress > this.lastRealProgress) {
-            this.lastRealProgress = progress.progress;
-            this.progress = progress.progress;
-            if (progress.progress >= 90) {
-              this.stopFakeProgress();
-            }
-          }
+          this.progress = progress.progress;
           this.status = progress.status;
 
           if (progress.status === 'merging') {
-            this.stopFakeProgress();
             this.progress = 95;
           }
           if (progress.status === 'completed') {
-            this.stopFakeProgress();
             this.progress = 100;
             // Store the conversion ID before downloading
             this.currentConversionId = conversionId;
             this.downloadFile(this.currentUrl, this.currentTitle);
           } else if (progress.status === 'error') {
-            this.stopFakeProgress();
             this.handleError('Conversion failed. Please try again.');
           }
         },
         error => {
-          this.stopFakeProgress();
           console.error('Progress check error:', error);
           this.handleError('Error checking progress. Please try again.');
         }
@@ -290,7 +277,6 @@ export class ConversionProgressComponent implements OnInit, OnDestroy {
 
   private handleError(message: string) {
     this.status = message;
-    this.stopFakeProgress();
     if (this.progressSubscription) {
       this.progressSubscription.unsubscribe();
       this.progressSubscription = null;
@@ -371,11 +357,11 @@ export class ConversionProgressComponent implements OnInit, OnDestroy {
       case 'error':
         return 'Conversion failed. Please try again.';
       default:
-        return 'Processing...';
+        return status || 'Processing...';
     }
   }
 
-  // Add: Start audio conversion and download as MP3
+  // Start an audio download; the upstream currently returns M4A.
   startAudioConversion(url: string, title: string, audioItag: string, abr: string) {
     this.isConverting = true;
     this.progress = 0;
@@ -383,8 +369,6 @@ export class ConversionProgressComponent implements OnInit, OnDestroy {
     this.currentUrl = url;
     this.currentTitle = title;
     this.retryCount = 0;
-    this.lastRealProgress = 0;
-    this.startFakeProgress(90); // Simulate up to 90%
 
     this.youtubeService.audioToMp3(url, title, audioItag, abr).subscribe(
       (response: any) => {
@@ -410,45 +394,35 @@ export class ConversionProgressComponent implements OnInit, OnDestroy {
     this.progressSubscription = interval(2000)
       .pipe(
         takeWhile(() => this.isConverting),
-        switchMap(() => this.youtubeService.getConversionProgress(conversionId)),
-        catchError(error => {
-          console.error('Audio progress check error:', error);
-          this.retryCount++;
-          if (this.retryCount >= this.maxRetries) {
-            this.handleError('Error checking audio progress. Please try again.');
-            throw error;
-          }
-          return this.youtubeService.getConversionProgress(conversionId);
-        })
+        switchMap(() => this.youtubeService.getConversionProgress(conversionId).pipe(
+          catchError(error => {
+            console.error('Audio progress check error:', error);
+            this.retryCount++;
+            if (this.retryCount >= this.maxRetries) {
+              this.handleError('Error checking audio progress. Please try again.');
+            }
+            return EMPTY;
+          })
+        )),
+        takeWhile((p: any) => p.status !== 'completed' && p.status !== 'error', true)
       )
       .subscribe(
         (progress: any) => {
-          // Smooth progress logic
-          if (progress.progress > this.lastRealProgress) {
-            this.lastRealProgress = progress.progress;
-            this.progress = progress.progress;
-            if (progress.progress >= 90) {
-              this.stopFakeProgress();
-            }
-          }
+          this.progress = progress.progress;
           this.status = progress.status;
 
           if (progress.status === 'merging') {
-            this.stopFakeProgress();
             this.progress = 95;
           }
           if (progress.status === 'completed') {
-            this.stopFakeProgress();
             this.progress = 100;
             this.currentConversionId = conversionId;
             this.downloadAudioMp3();
           } else if (progress.status === 'error') {
-            this.stopFakeProgress();
             this.handleError('Audio conversion failed. Please try again.');
           }
         },
         error => {
-          this.stopFakeProgress();
           console.error('Audio progress check error:', error);
           this.handleError('Error checking audio progress. Please try again.');
         }
@@ -456,37 +430,26 @@ export class ConversionProgressComponent implements OnInit, OnDestroy {
   }
 
   private downloadAudioMp3() {
-    this.status = 'Downloading MP3...';
+    this.status = 'Downloading M4A...';
     if (!this.currentConversionId) {
       this.handleError('No conversion ID available. Please try again.');
       return;
     }
     // Store the filename from the conversion progress for the download
     const sanitizedTitle = this.currentTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase().substring(0, 50);
-    this.youtubeService.currentFilename = `${sanitizedTitle}_HDTube.mp3`;
-    this.youtubeService.downloadAudioMp3(this.currentConversionId);
-    this.status = 'Download complete!';
-    setTimeout(() => {
-      this.isConverting = false;
-    }, 1000);
-  }
-
-  private startFakeProgress(max: number) {
-    this.stopFakeProgress();
-    this.fakeProgressTimer = setInterval(() => {
-      if (this.progress < max) {
-        this.progress += 1;
-      } else {
-        this.stopFakeProgress();
+    this.youtubeService.currentFilename = `${sanitizedTitle}_HDTube.m4a`;
+    this.youtubeService.downloadAudioMp3(this.currentConversionId).then(
+      () => {
+        this.status = 'Download complete!';
+        setTimeout(() => {
+          this.isConverting = false;
+        }, 1000);
+      },
+      error => {
+        console.error('Audio download error:', error);
+        this.handleError(error.message || 'Audio download failed. Please try again.');
       }
-    }, 100); // 1% every 100ms
-  }
-
-  private stopFakeProgress() {
-    if (this.fakeProgressTimer) {
-      clearInterval(this.fakeProgressTimer);
-      this.fakeProgressTimer = null;
-    }
+    );
   }
 
   ngOnDestroy() {

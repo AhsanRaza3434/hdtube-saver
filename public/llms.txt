@@ -1,26 +1,26 @@
 # llms.txt - HDTube Saver
 # AI crawler optimization file
-# https://hdtube-saver.com
+# https://hdtube-saver.netlify.app
 
 # HDTube Saver
 
-> HDTube Saver is a free online YouTube video and audio downloader. Download YouTube videos in HD quality, convert to MP4, extract audio as MP3, and choose from multiple resolutions and formats. No installation required - works directly in your browser.
+> HDTube Saver is a free online YouTube video and audio downloader. Download YouTube videos in HD quality, convert to MP4, and choose from multiple resolutions and formats. No installation required - works directly in your browser.
 
 ## Key Features
 
 - Download YouTube videos in HD (720p, 1080p)
 - Convert YouTube videos to MP4 format
-- Extract audio from YouTube videos as MP3
+- Download available audio tracks as M4A
 - Multiple quality options (240p to 1080p)
 - Fast, free, and no registration required
 - Works on desktop and mobile browsers
 
 ## Pages
 
-- [Homepage](https://hdtube-saver.com/) - Main download tool
-- [FAQ](https://hdtube-saver.com/faq) - Frequently asked questions
-- [Privacy Policy](https://hdtube-saver.com/privacy-policy) - Privacy policy
-- [Terms of Service](https://hdtube-saver.com/terms-of-service) - Terms of service
+- [Homepage](https://hdtube-saver.netlify.app/) - Main download tool
+- [FAQ](https://hdtube-saver.netlify.app/faq) - Frequently asked questions
+- [Privacy Policy](https://hdtube-saver.netlify.app/privacy-policy) - Privacy policy
+- [Terms of Service](https://hdtube-saver.netlify.app/terms-of-service) - Terms of service
 
 ## Usage
 
@@ -34,9 +34,8 @@
 
 - Frontend: Angular 11 (TypeScript)
 - Backend: Node.js (Express)
-- Video Processing: yt-dlp
-- Audio Conversion: FFmpeg
-- Deployment: Vercel (frontend) + Render (backend)
+- Video details and file preparation: RapidAPI
+- Deployment: Netlify (frontend) + Render (backend)
 
 ## Contact
 

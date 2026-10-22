@@ -1,13 +1,15 @@
 import { TestBed } from '@angular/core/testing';
-
-import { YoutubeService } from './youtube.service';
+import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { YouTubeService } from './youtube.service';
 
 describe('YoutubeService', () => {
-  let service: YoutubeService;
+  let service: YouTubeService;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({});
-    service = TestBed.inject(YoutubeService);
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+    });
+    service = TestBed.inject(YouTubeService);
   });
 
   it('should be created', () => {

@@ -7,7 +7,7 @@ import { filter } from 'rxjs/operators';
   providedIn: 'root',
 })
 export class SeoService {
-  private readonly siteUrl = 'https://hdtube-saver.com';
+  private readonly siteUrl = 'https://hdtube-saver.netlify.app';
   private readonly siteName = 'HDTube Saver';
 
   private readonly routeMeta: Record<
@@ -17,7 +17,7 @@ export class SeoService {
     '/': {
       title: 'HDTube Saver - Download YouTube Videos in HD for Free',
       description:
-        'Download YouTube videos in HD quality for free. Convert to MP4, extract audio as MP3, choose from multiple resolutions. No installation required - works in your browser.',
+        'Download YouTube videos in HD quality for free. Convert to MP4, download available audio as M4A, and choose from multiple resolutions.',
     },
     '/faq': {
       title: 'FAQ - HDTube Saver | Frequently Asked Questions',
@@ -111,7 +111,7 @@ export class SeoService {
       name: this.siteName,
       url: this.siteUrl,
       description:
-        'Free online YouTube video and audio downloader. Download in HD, MP4, or MP3.',
+        'Free online YouTube video and audio downloader. Download video in HD or MP4 and available audio as M4A.',
       potentialAction: {
         '@type': 'SearchAction',
         target: this.siteUrl + '/?q={search_term_string}',

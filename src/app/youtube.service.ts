@@ -36,10 +36,8 @@ export class YouTubeService {
   }
 
   getConversionProgress(conversionId: string): Observable<any> {
-    return interval(1000).pipe(
-      switchMap(() => this.http.get(`${this.apiUrl}/conversion-progress?conversionId=${conversionId}`)),
-      takeWhile((response: any) => response.status !== 'completed' && response.status !== 'error', true)
-    );
+    // Single request; callers own the polling interval.
+    return this.http.get(`${this.apiUrl}/conversion-progress?conversionId=${conversionId}`);
   }
 
   streamMerge(url: string, title: string, videoItag: string, audioItag: string): Observable<any> {
@@ -51,7 +49,7 @@ export class YouTubeService {
     });
   }
 
-  // Add: Convert audio to MP3
+  // The upstream service returns M4A audio; the legacy route name is retained.
   audioToMp3(url: string, title: string, audioItag: string, abr: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/audio-to-mp3`, {
       url: url,
@@ -61,11 +59,11 @@ export class YouTubeService {
     });
   }
 
-  // Add: Download the converted MP3 file
-  downloadAudioMp3(conversionId: string): void {
+  // The legacy method name is retained for compatibility with existing callers.
+  downloadAudioMp3(conversionId: string): Promise<void> {
     const downloadUrl = `${this.apiUrl}/download-audio-mp3?conversionId=${encodeURIComponent(conversionId)}`;
     // Fetch as blob first so we can detect error responses (e.g. 404 JSON) instead of saving them as a file
-    fetch(downloadUrl)
+    return fetch(downloadUrl)
       .then(response => {
         if (!response.ok) {
           return response.json().then(err => {
@@ -81,20 +79,15 @@ export class YouTubeService {
         return response.blob();
       })
       .then(blob => {
-        if (blob instanceof Error) throw blob;
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         // Use the video title from the conversion progress, fallback to conversionId
-        link.download = this.currentFilename || `${conversionId}_HDTube.mp3`;
+        link.download = this.currentFilename || `${conversionId}_HDTube.m4a`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
+        window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
       })
-      .catch(error => {
-        console.error('MP3 download error:', error);
-        alert(error.message || 'Download failed. Please try again.');
-      });
   }
 }

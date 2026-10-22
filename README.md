@@ -1,27 +1,38 @@
-# YoutubeDownloaderFrontend
+# HDTube Saver
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 11.1.2.
+HDTube Saver is an Angular single-page application backed by an Express API. The API asks RapidAPI for YouTube video details and prepared download files; video downloads are MP4 and audio downloads are M4A.
 
-## Development server
+## Architecture
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The app will automatically reload if you change any of the source files.
+- `src/`: Angular frontend and routes.
+- `server.js`: Express API, RapidAPI integration, conversion progress tracking, and temporary download files.
+- `netlify.toml`: production frontend build, SPA fallback, and `/api/*` proxy to Render.
+- `render.yaml`: Render web-service configuration.
 
-## Code scaffolding
+Conversion jobs and temporary files are kept in the Render process's memory and local filesystem. They can be lost when the service restarts or redeploys; this setup is not a durable job or file store.
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+## Requirements
 
-## Build
+- Node.js 18 for the configured Netlify build. The Angular 11 build currently uses the legacy OpenSSL provider on newer Node versions.
+- A RapidAPI key for the configured YouTube downloader API.
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory. Use the `--prod` flag for a production build.
+## Local development
 
-## Running unit tests
+1. Install dependencies with `npm ci` (if the lockfile is current) or `npm install`.
+2. Set `RAPIDAPI_KEY` in your shell. The backend intentionally exits if this key is missing.
+3. Run the API with `npm start` (defaults to port 10000).
+4. In another terminal, run `npx ng serve`; the development environment points to `http://localhost:3000/api`, so set `PORT=3000` for the API when using this setup.
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+The API's `PORT` can be configured through the environment.
 
-## Running end-to-end tests
+## Build and tests
 
-Run `ng e2e` to execute the end-to-end tests via [Protractor](http://www.protractortest.org/).
+- `npm run build` builds the production frontend.
+- `npm test -- --watch=false --browsers=ChromeHeadless` runs frontend unit tests.
+- `npm run lint` runs the configured Angular lint task.
 
-## Further help
+## Deployment
 
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.io/cli) page.
+Netlify builds and serves `dist/hdtube-saver`; its `/api/*` rewrite proxies to the Render service. Render runs `node server.js` and must have `RAPIDAPI_KEY` configured as a secret environment variable. Keep that key out of source control and rotate it if it has ever been committed.
+
+The API applies per-process rate limits. For sustained traffic, multiple instances, or reliable downloads, use shared job state and durable object storage rather than the current in-memory map and ephemeral local files.

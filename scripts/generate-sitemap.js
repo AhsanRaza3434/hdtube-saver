@@ -7,7 +7,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const BASE_URL = process.env.SITE_URL || 'https://hdtube-saver.com';
+const BASE_URL = process.env.SITE_URL || 'https://hdtube-saver.netlify.app';
 
 const routes = [
   { path: '/', priority: '1.0', changefreq: 'daily' },

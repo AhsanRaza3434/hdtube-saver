@@ -13,15 +13,15 @@ export class FaqComponent {
     },
     {
       q: 'Can I download both video and audio from YouTube?',
-      a: 'Absolutely! You can download videos in HD, MP4, or just extract the audio as MP3.'
+      a: 'Absolutely! You can download videos in HD or MP4, or download the available audio as M4A.'
     },
     {
       q: 'Is it legal to download YouTube videos?',
-      a: 'Downloading YouTube videos is allowed for personal, non-commercial use. Please respect YouTube\'s terms of service and copyright laws.'
+      a: 'Downloads may be restricted by YouTube\'s terms and copyright law. Only download content when you have the necessary rights or permission.'
     },
     {
       q: 'What formats are supported?',
-      a: 'You can download in MP4, MP3, and other popular formats depending on the video.'
+      a: 'Video downloads are provided in MP4. Audio downloads are provided in M4A.'
     },
     {
       q: 'Do I need to install any software?',

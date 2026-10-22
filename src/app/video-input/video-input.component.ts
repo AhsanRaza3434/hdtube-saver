@@ -11,6 +11,7 @@ export class VideoInputComponent {
   videoUrl: string = '';
   videoDetails: any;
   isLoading: boolean = false; // Loading flag
+  errorMessage: string = '';
 
   constructor(private youtubeService: YouTubeService) {}
 
@@ -22,6 +23,7 @@ export class VideoInputComponent {
   }
 
   onSubmit() {
+    this.errorMessage = '';
     if (!this.isValidYouTubeUrl(this.videoUrl)) {
       Swal.fire({
         icon: 'error',
@@ -44,6 +46,9 @@ export class VideoInputComponent {
       },
       (error) => {
         console.error('Error fetching video details:', error);
+        this.errorMessage =
+          (error.error && error.error.error) ||
+          'Unable to fetch video details. Please check the URL and try again.';
         this.isLoading = false; // Hide loading GIF on error
       }
     );

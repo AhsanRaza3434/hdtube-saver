@@ -22,7 +22,7 @@ export class VideoDetailsComponent {
   ngOnChanges() {
     if (this.details) {
       this.videoFormats = this.details.videoFormats || [];
-      // Enhance audioFormats: always show MP3, show bitrate as quality, estimate size if missing, and filter out invalid rows
+      // Show available M4A audio formats with bitrate and estimated size.
       this.audioFormats = (this.details.audioFormats || [])
         .filter((f: any) => f.abr && f.size && f.size !== 'UNKNOWN')
         .map((f: any) => {
@@ -35,8 +35,8 @@ export class VideoDetailsComponent {
           } else {
             quality = 'audio';
           }
-          // Always show format as MP3
-          let format = 'MP3';
+          // Show the real container reported by the backend (currently M4A)
+          let format = (f.format || 'm4a').toUpperCase();
           // Estimate size if missing (should not happen after backend fix)
           let size = f.size;
           if (!size || size === 'UNKNOWN') {
@@ -102,7 +102,7 @@ export class VideoDetailsComponent {
     this.conversionProgress.startConversion(this.originalUrl, this.details.title, format.itag);
   }
 
-  // Add: Download and convert audio to MP3
+  // Download the available audio format (M4A).
   downloadAudio(format: any) {
     console.log('Audio download clicked. Format:', format);
     if (!format || !format.itag) {

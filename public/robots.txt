@@ -1,5 +1,5 @@
 # robots.txt for HDTube Saver
-# https://hdtube-saver.com
+# https://hdtube-saver.netlify.app
 
 User-agent: *
 Allow: /
@@ -40,4 +40,4 @@ Allow: /
 Disallow: /api/
 
 # Sitemap location
-Sitemap: https://hdtube-saver.com/sitemap.xml
+Sitemap: https://hdtube-saver.netlify.app/sitemap.xml
